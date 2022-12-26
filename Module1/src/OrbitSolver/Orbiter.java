@@ -201,7 +201,6 @@ public class Orbiter extends Box {
 
             r[k] = r[k-1] + (1.0/6) * h * direction * (k1 + 2*k2 + 2*k3 + k4);
             phi[k] = phi[k-1] + h*l/Math.pow(r[k-1], 2);
-            phi[k] %= 2*Math.PI;
             t[k] = t[k-1] + h*e/(1-2*M/r[k-1]);
 
 
@@ -231,7 +230,6 @@ public class Orbiter extends Box {
 
             r[k] = r[k-1] + h*direction*k1;
             phi[k] = phi[k-1] + h*l/Math.pow(r[k-1], 2);
-            phi[k] %= 2*Math.PI;
             t[k] = t[k-1] + h*e/(1-2*M/r[k-1]);
 
 
