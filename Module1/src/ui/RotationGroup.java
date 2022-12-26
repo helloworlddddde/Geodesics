@@ -9,14 +9,14 @@ class RotationGroup extends Group {
     Rotate r;
     Transform t = new Rotate();
 
-    void rotateByX(int ang) {
+    void rotateByX(double ang) {
         r = new Rotate(ang, Rotate.X_AXIS);
         t = t.createConcatenation(r);
         this.getTransforms().clear();
         this.getTransforms().addAll(t);
     }
 
-    void rotateByY(int ang) {
+    void rotateByY(double ang) {
         r = new Rotate(ang, Rotate.Y_AXIS);
         t = t.createConcatenation(r);
         this.getTransforms().clear();

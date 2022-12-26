@@ -6,9 +6,13 @@ import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.shape.Box;
 
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+
 public class Orbiter extends Box {
 
-
+    protected double b;
     protected double plotMax;
     protected double M;
     protected int size;
@@ -17,8 +21,22 @@ public class Orbiter extends Box {
     protected double[] t;
     protected double e;
     protected double l;
+    protected double dphi0;
+    protected double dt0;
     protected int direction;
     protected double epsilon;
+
+    public double getPlotMax() {
+        return plotMax;
+    }
+
+    public double getDphi0() {
+        return dphi0;
+    }
+
+    public double getDt0() {
+        return dt0;
+    }
 
 
     public Orbiter() {
@@ -30,11 +48,14 @@ public class Orbiter extends Box {
         this.plotMax = plotMax;
         this.M = M;
         this.size = size;
+        this.dphi0 = dphi0;
+        this.dt0 = dt0;
 
         this.r = new double[size];
         this.phi = new double[size];
         this.t = new double[size];
         this.direction = direction;
+
 
         r[0] = r0;
         phi[0] = phi0;
@@ -43,9 +64,17 @@ public class Orbiter extends Box {
         e = (1-2*M/r0)* dt0;
         l = r0 * r0 * dphi0;
         epsilon = (e*e - 1) / 2;
+        b = l/e;
 
 
 
+    }
+
+    public double getB() {
+        return b;
+    }
+    public double getEpsilon() {
+        return epsilon;
     }
 
     public void setPlotMax(double plotMax) {
@@ -90,6 +119,7 @@ public class Orbiter extends Box {
     public void setE(double e) {
         this.e = e;
         this.epsilon = (e * e - 1) / 2;
+        b = l/e;
     }
 
     public double getM() {
@@ -107,10 +137,15 @@ public class Orbiter extends Box {
 
     public void setL(double l) {
         this.l = l;
+        b = l/e;
     }
 
     public void setDirection(int direction) {
         this.direction = direction;
+    }
+
+    public int getDirection() {
+        return direction;
     }
 
 
@@ -180,14 +215,16 @@ public class Orbiter extends Box {
 
     public void RungeKutta(double h, double turnCheck) {
         setSize(getSize());
+        Function<Double, Double> function = (v) -> Math.sqrt(2*(epsilon - Veff(v)));
         double direction = this.direction;
         for(int k = 1; k < size; k++) {
-            double k1 = Math.sqrt(2*(epsilon - Veff(r[k-1])));
-            double k2 = Math.sqrt(2*(epsilon - Veff(r[k-1] + h * k1 / 2)));
-            double k3 = Math.sqrt(2*(epsilon - Veff(r[k-1] + h * k2 / 2)));
-            double k4 = Math.sqrt(2*(epsilon - Veff(r[k-1] + h * k3)));
 
-            if (epsilon-Veff(r[k-1] + (1.0/turnCheck) * h * direction*(k1 + 2*k2 + 2*k3 + k4)) < 0) {
+            double k1 = function.apply(r[k-1]);
+            double k2 = function.apply(r[k-1] + h * k1 / 2);
+            double k3 = function.apply(r[k-1] + h * k2 / 2);
+            double k4 = function.apply(r[k-1] + h * k3);
+
+            if (Double.isNaN(function.apply(r[k-1] + (1.0/turnCheck) * h * direction*(k1 + 2*k2 + 2*k3 + k4)))) {
                 if (r[k-1] + (1.0/turnCheck) * h * direction * (k1 + 2*k2 + 2*k3 + k4) < 0) {
                     break;
                 }
@@ -209,11 +246,15 @@ public class Orbiter extends Box {
     }
 
     public void Euler(double h) {
+
         setSize(getSize());
+
+        Function<Double, Double> function = (v) -> Math.sqrt(2*(epsilon - Veff(v)));
+
         double direction = this.direction;
         for(int k = 1; k < size; k++) {
 
-            double k1 = Math.sqrt(2*(epsilon - Veff(r[k-1])));
+            double k1 = function.apply(r[k-1]);
 
             // detecting turning point
             if (epsilon-Veff(r[k-1] + h*direction*k1) < 0) {

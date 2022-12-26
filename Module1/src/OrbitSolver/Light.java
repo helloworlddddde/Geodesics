@@ -6,7 +6,7 @@ import javafx.scene.chart.XYChart;
 
 public class Light extends Orbiter {
 
-    private double b;
+
 
 
     @Override
@@ -18,17 +18,7 @@ public class Light extends Orbiter {
     }
 
 
-    @Override
-    public void setE(double e) {
-        this.e = e;
-        b = l/e;
-    }
 
-    @Override
-    public void setL(double l) {
-        this.l = l;
-        b = l/e;
-    }
 
 
 
