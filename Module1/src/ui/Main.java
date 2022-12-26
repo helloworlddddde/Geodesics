@@ -45,8 +45,7 @@ public class Main extends Application {
 
         Stage dataStage = new Stage();
         initializeDataStage(dataStage, orbiter);
-        int dog = 0;
-        int cat = 0;
+
 
 
 
