@@ -65,7 +65,7 @@ public class UIGenerator {
             } else {
                 newOrbiter = new Particle(orbiter);
             }
-            runOrbiter(newOrbiter, simulationSubScene, orbiterTrackerSubScene, 1.0, 3.0);
+            runOrbiter(newOrbiter, simulationSubScene, orbiterTrackerSubScene, 0.3, 3.0);
         });
         HBox rootHorizontalBox = new HBox(effectivePotentialSubScene,
                 simulationSubScene,  orbiterTrackerSubScene, runButton);
@@ -239,44 +239,61 @@ public class UIGenerator {
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {
             ArrayList<double[]> storedOrbiterData = new ArrayList<>();
-            int t = 0;
+            double t = 0;
+            int initial = 0;
+
             @Override
             public void run() {
+
                 Platform.runLater(() -> {
-                    if (t == 20000) {
+                    if (t >= 20000) {
                         timer.cancel();
                         centerGroup.getChildren().remove(newGroup);
                         tableView.getItems().remove(orbiterPointView3D);
                     }
-                    if (t % 10 == 0) {
-                        boolean found = false;
-                        for(int i = 0; i < storedOrbiterData.size() - 1; i++) {
-                            double[] prevOrbiterData = storedOrbiterData.get(i);
-                            double[] currOrbiterData = storedOrbiterData.get(i+1);
-                            if (prevOrbiterData[0] >= t && currOrbiterData[0] <= t) {
-                                found = true;
-                            }
+                    double[] prev = newOrbiter.getData();
+                    double[] next = newOrbiter.getData();
+                    for(int i = initial; i < storedOrbiterData.size() - 1; i++) {
+                        double[] test = storedOrbiterData.get(i+1);
+                        if (test[0] > t) {
+                            prev = storedOrbiterData.get(i).clone();
+                            next = storedOrbiterData.get(i+1).clone();
+                            initial = i;
+                            break;
                         }
-                        if (found) {
-                            double r = newOrbiter.getData()[1];
-                            double phi = newOrbiter.getData()[3];
-                            double time = newOrbiter.getData()[0];
-                            orbiterBox.setTranslateX(r * Math.cos(phi));
-                            orbiterBox.setTranslateY(r * Math.sin(phi));
-                            Sphere tracer = new Sphere(1);
-                            tracer.setTranslateX(r * Math.cos(phi));
-                            tracer.setTranslateY(r * Math.sin(phi));
-                            Material tracerMaterial = new PhongMaterial(tracerColor);
-                            tracer.setMaterial(tracerMaterial);
-                            newGroup.getChildren().add(tracer);
-                            orbiterPointView3D.setPointLabels(getVisualCartesianCoordinates(orbiterBox));
-                            orbiterPointView3D.setTau(Double.toString(time));
-                        }
-
                     }
-                    storedOrbiterData.add(newOrbiter.getData());
+
+
+
+
+                    if (true) {
+                        double[] interpolatedData = newOrbiter.getData();
+                                interpolatedData = DataGenerator.interpolate(
+                                        t,
+                                        prev,
+                                        next);
+
+
+//                        double r = newOrbiter.getData()[1];
+//                        double phi = newOrbiter.getData()[3];
+//                        double time = newOrbiter.getData()[0];
+                        double r = interpolatedData[1];
+                        double phi = interpolatedData[3];
+                        double time = interpolatedData[0];
+                        orbiterBox.setTranslateX(r * Math.cos(phi));
+                        orbiterBox.setTranslateY(r * Math.sin(phi));
+                        Sphere tracer = new Sphere(1);
+                        tracer.setTranslateX(r * Math.cos(phi));
+                        tracer.setTranslateY(r * Math.sin(phi));
+                        Material tracerMaterial = new PhongMaterial(tracerColor);
+                        tracer.setMaterial(tracerMaterial);
+                        newGroup.getChildren().add(tracer);
+                        orbiterPointView3D.setPointLabels(getVisualCartesianCoordinates(orbiterBox));
+                        orbiterPointView3D.setTau(Double.toString(time));
+                    }
+                    storedOrbiterData.add(newOrbiter.getData().clone());
                     newOrbiter.rungeKutta(stepSize, turnOffset);
-                    t++;
+                    t += stepSize;
                 });
             }
         }, 0, 1);
