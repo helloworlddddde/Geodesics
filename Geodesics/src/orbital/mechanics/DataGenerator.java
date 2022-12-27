@@ -7,12 +7,14 @@ import java.util.ArrayList;
 
 public class DataGenerator {
 
-    public static ArrayList<double[]> generateGeodesicData(int dataSize, double stepSize, double turnOffset, Orbiter orbiter) {
+    public static ArrayList<double[]> generateGeodesicData(int dataSize, double stepSize,
+                                                           double turnOffset, Orbiter orbiter,
+                                                           ArrayList<Orbiter> neighbors) {
         ArrayList<double[]> dataSet = new ArrayList<>();
         for(int i = 0; i < dataSize && !orbiter.isCollided(); i++) {
             double[] data = orbiter.getData().clone();
             dataSet.add(data);
-            orbiter.rungeKutta(stepSize, turnOffset);
+            orbiter.rungeKutta(stepSize, turnOffset, neighbors);
         }
         return dataSet;
     }

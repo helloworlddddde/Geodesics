@@ -34,7 +34,7 @@ public class Main extends Application {
 
         Orbiter orbiter = new Particle(1, 1, 0.993, 4.1, -1);
 
-        orbiter.setInitialConditions(new double[]{0, 100, 0, 0}, new double[]{0, 0});
+        orbiter.setInitialConditions(new double[]{0, 100, 0, 0, 0}, new double[]{0, 0});
 
 
         primaryStage.setScene(UIGenerator.generateMainScene(orbiter));

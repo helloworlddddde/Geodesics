@@ -1,8 +1,18 @@
 package orbital.entity;
 
+import com.sun.javafx.geometry.BoundsUtils;
+import javafx.geometry.Bounds;
+import javafx.geometry.Point3D;
+import javafx.scene.shape.Box;
+import ui.PointView3D;
+
+import java.util.ArrayList;
 import java.util.function.Supplier;
 
-public abstract class Orbiter {
+public abstract class Orbiter extends Box {
+
+    protected PointView3D globalPointView3D;
+    protected PointView3D localPointView3D;
     protected double mass;
     protected double schMass;
     protected double e;
@@ -12,8 +22,8 @@ public abstract class Orbiter {
     protected double[] rotationalOffsets;
     protected boolean collided;
 
-
     public Orbiter(Orbiter orbiter) {
+        super(10, 10, 10);
         this.mass = orbiter.mass;
         this.schMass = orbiter.schMass;
         this.e = orbiter.e;
@@ -25,18 +35,25 @@ public abstract class Orbiter {
     }
 
     public Orbiter(double mass, double schMass, double e, double l, int direction) {
+        super(10, 10, 10);
         this.mass = mass;
         this.schMass = schMass;
         this.e = e;
         this.l = l;
         this.direction = direction;
-        data = new double[4];
+        data = new double[5];
+        globalPointView3D = new PointView3D("", getGlobalCartesianCoordinates(), Double.toString(data[4]));
+        localPointView3D = new PointView3D("", getLocalCartesianCoordinates(), Double.toString(data[4]));
         collided = false;
     }
 
     public void setInitialConditions(double[] data, double[] rotationalOffsets) {
         this.data = data;
         this.rotationalOffsets = rotationalOffsets;
+        setTranslateX(data[1] * Math.cos(data[3]));
+        setTranslateY(data[1] * Math.sin(data[3]));
+        globalPointView3D = new PointView3D("", getGlobalCartesianCoordinates(), Double.toString(data[4]));
+        localPointView3D = new PointView3D("", getLocalCartesianCoordinates(), Double.toString(data[4]));
     }
 
     public double[] getData() {
@@ -59,13 +76,20 @@ public abstract class Orbiter {
 
     public abstract double geodesicFunction(double radius);
 
-    public void rungeKutta(double stepSize, double turnOffset) {
+    public void rungeKutta(double stepSize, double turnOffset, ArrayList<Orbiter> neighbors) {
+
+        Point3D cartesianPoint = getGlobalCartesianCoordinates();
+        cartesianPoint = globalToLocal(cartesianPoint);
+        Point3D sphericalPoint = toSpherical(cartesianPoint);
+        data[1] = sphericalPoint.getX();
+        data[2] = sphericalPoint.getY();
+        data[3] = sphericalPoint.getZ();
+
 
         double k1 = geodesicFunction(data[1]);
         double k2 = geodesicFunction(data[1] + stepSize * k1 / 2);
         double k3 = geodesicFunction(data[1] + stepSize * k2 / 2);
         double k4 = geodesicFunction(data[1] + stepSize * k3);
-
 
         Supplier<Boolean> isTurningPoint = () ->
                 Double.isNaN(geodesicFunction(data[1] + (1.0 / turnOffset)
@@ -87,15 +111,87 @@ public abstract class Orbiter {
             collided = true;
         }
 
+        data[3] += stepSize * l / Math.pow(data[1], 2);
+        data[0] += stepSize * e / (1 - 2 * schMass / data[1]);
+        data[1] += (1.0 / 6) * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4);
+        data[2] = Math.PI/2;
+        data[4] += stepSize;
 
-        data[3] = data[3] + stepSize * l / Math.pow(data[1], 2);
-        data[0] = data[0] + stepSize * e / (1 - 2 * schMass / data[1]);
-        data[1] = data[1] + (1.0 / 6) * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4);
-        data[2] = 0;
+        setTranslateX(data[1] * Math.cos(data[3]));
+        setTranslateY(data[1] * Math.sin(data[3]));
 
 
+        for(Orbiter neighbor : neighbors) {
+            if (neighbor != this) {
+                Point3D globalPoint1 = getGlobalCartesianCoordinates();
+                Point3D globalPoint2 = neighbor.getGlobalCartesianCoordinates();
+                double distance = globalPoint1.distance(globalPoint2);
+                System.out.println(distance);
+            }
+        }
+
+        globalPointView3D = new PointView3D("", getGlobalCartesianCoordinates(), Double.toString(data[4]));
+        localPointView3D = new PointView3D("", getLocalCartesianCoordinates(), Double.toString(data[4]));
 
     }
+
+    public static Point3D toSpherical(Point3D point3D) {
+        double x = point3D.getX();
+        double y = point3D.getY();
+
+        double r = Math.sqrt(x*x + y*y);
+        double theta = Math.PI/2;
+        double phi = Math.atan(Math.abs(y/x));
+
+        if (y > 0 && x > 0) {
+            phi = phi;
+        } else if (y > 0 && x < 0) {
+            phi = Math.PI - phi;
+        } else if (y < 0 && x < 0) {
+            phi = Math.PI + phi;
+        } else if (y < 0 && x > 0) {
+            phi = 2*Math.PI - phi;
+        }
+
+        return new Point3D(r, theta, phi);
+    }
+    public PointView3D getGlobalPointView3D() {
+        return globalPointView3D;
+    }
+
+    public PointView3D getLocalPointView3D() {
+        return localPointView3D;
+    }
+
+    public Point3D getGlobalCartesianCoordinates() {
+        Bounds boundsInScene = localToScene(getBoundsInLocal());
+        double x = (boundsInScene.getMaxX() + boundsInScene.getMinX()) / 2;
+        double y = (boundsInScene.getMaxY() + boundsInScene.getMinY()) / 2;
+        double z = (boundsInScene.getMaxZ() + boundsInScene.getMinZ()) / 2;
+        return new Point3D(x, y, z);
+    }
+
+    public Point3D getLocalCartesianCoordinates() {
+        Bounds boundsInParent = localToParent(getBoundsInLocal());
+        double x = (boundsInParent.getMaxX() + boundsInParent.getMinX()) / 2;
+        double y = (boundsInParent.getMaxY() + boundsInParent.getMinY()) / 2;
+        double z = (boundsInParent.getMaxZ() + boundsInParent.getMinZ()) / 2;
+        return new Point3D(x, y, z);
+    }
+
+    public Point3D globalToLocal(Point3D globalPoint) {
+        Bounds globalBounds = BoundsUtils.createBoundingBox(
+                globalPoint, globalPoint, globalPoint, globalPoint, globalPoint, globalPoint, globalPoint, globalPoint
+        );
+        Bounds boundsInLocal = sceneToLocal(globalBounds);
+        Bounds boundsInParent = localToParent(boundsInLocal);
+        double x = (boundsInParent.getMaxX() + boundsInParent.getMinX()) / 2;
+        double y = (boundsInParent.getMaxY() + boundsInParent.getMinY()) / 2;
+        double z = (boundsInParent.getMaxZ() + boundsInParent.getMinZ()) / 2;
+        return new Point3D(x, y, z);
+    }
+
+
 
 
 }
