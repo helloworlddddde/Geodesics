@@ -4,7 +4,10 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.geometry.Bounds;
 import javafx.geometry.Point3D;
-import javafx.scene.*;
+import javafx.scene.Camera;
+import javafx.scene.PerspectiveCamera;
+import javafx.scene.Scene;
+import javafx.scene.SubScene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -15,7 +18,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.Material;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
-import javafx.scene.shape.Shape;
 import javafx.scene.shape.Shape3D;
 import javafx.scene.shape.Sphere;
 import orbital.entity.Orbiter;
@@ -25,7 +27,6 @@ import orbital.mechanics.DataGenerator;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.function.Supplier;
 
 public class UIGenerator {
 
@@ -65,105 +66,18 @@ public class UIGenerator {
             } else {
                 newOrbiter = new Particle(orbiter);
             }
-            runOrbiter(newOrbiter, simulationSubScene, orbiterTrackerSubScene, 0.3, 3.0);
+            runOrbiter(newOrbiter, simulationSubScene, orbiterTrackerSubScene, 1.0, 3.0);
         });
+        VBox rootVerticalBox = new VBox();
         HBox rootHorizontalBox = new HBox(effectivePotentialSubScene,
-                simulationSubScene,  orbiterTrackerSubScene, runButton);
+                simulationSubScene, orbiterTrackerSubScene);
+        rootVerticalBox.getChildren().addAll(rootHorizontalBox, runButton);
 
-        Scene scene = new Scene(rootHorizontalBox, 1400, 800, true);
+        Scene scene = new Scene(rootVerticalBox, 1400, 800, true);
         setMainSceneControls(scene, effectivePotentialSubScene, simulationSubScene);
         return scene;
     }
 
-    public static class PointView3D {
-        private final SimpleStringProperty label;
-        private final SimpleStringProperty x;
-        private final SimpleStringProperty y;
-        private final SimpleStringProperty z;
-        private final SimpleStringProperty tau;
-
-        private PointView3D(String label, String x, String y, String z, String tau) {
-            this.label = new SimpleStringProperty(label);
-            this.x = new SimpleStringProperty(x);
-            this.y = new SimpleStringProperty(y);
-            this.z = new SimpleStringProperty(z);
-            this.tau = new SimpleStringProperty(tau);
-        }
-
-        private PointView3D(String label, Point3D point3D, String tau) {
-            this.label = new SimpleStringProperty(label);
-            this.x = new SimpleStringProperty(Double.toString(point3D.getX()));
-            this.y = new SimpleStringProperty(Double.toString(point3D.getY()));
-            this.z = new SimpleStringProperty(Double.toString(point3D.getZ()));
-            this.tau = new SimpleStringProperty(tau);
-        }
-
-        public String getLabel() {
-            return label.get();
-        }
-
-        public SimpleStringProperty labelProperty() {
-            return label;
-        }
-
-        public void setLabel(String label) {
-            this.label.set(label);
-        }
-
-        public String getX() {
-            return x.get();
-        }
-
-        public SimpleStringProperty xProperty() {
-            return x;
-        }
-
-        public void setX(String x) {
-            this.x.set(x);
-        }
-
-        public String getY() {
-            return y.get();
-        }
-
-        public String getTau() {
-            return tau.get();
-        }
-
-        public SimpleStringProperty tauProperty() {
-            return tau;
-        }
-
-        public void setTau(String tau) {
-            this.tau.set(tau);
-        }
-
-        public SimpleStringProperty yProperty() {
-            return y;
-        }
-
-        public void setY(String y) {
-            this.y.set(y);
-        }
-
-        public void setPointLabels(Point3D point3D) {
-            setX(Double.toString(point3D.getX()));
-            setY(Double.toString(point3D.getY()));
-            setZ(Double.toString(point3D.getZ()));
-        }
-
-        public String getZ() {
-            return z.get();
-        }
-
-        public SimpleStringProperty zProperty() {
-            return z;
-        }
-
-        public void setZ(String z) {
-            this.z.set(z);
-        }
-    }
     private static SubScene generateOrbiterTrackerSubScene() {
         TableView<PointView3D> tableView = new TableView<>();
         TableColumn<PointView3D, String> labelColumn = new TableColumn("Label");
@@ -211,12 +125,11 @@ public class UIGenerator {
 
     public static Point3D getVisualCartesianCoordinates(Shape3D orbiterShape) {
         Bounds boundsInScene = orbiterShape.localToScene(orbiterShape.getBoundsInLocal());
-        double x = (boundsInScene.getMaxX() + boundsInScene.getMinX())/2;
-        double y = (boundsInScene.getMaxY() + boundsInScene.getMinY())/2;
-        double z = (boundsInScene.getMaxZ() + boundsInScene.getMinZ())/2;
+        double x = (boundsInScene.getMaxX() + boundsInScene.getMinX()) / 2;
+        double y = (boundsInScene.getMaxY() + boundsInScene.getMinY()) / 2;
+        double z = (boundsInScene.getMaxZ() + boundsInScene.getMinZ()) / 2;
         return new Point3D(x, y, z);
     }
-
 
     public static void runOrbiter(Orbiter newOrbiter, SubScene simulationSubScene,
                                   SubScene orbiterTrackerSubScene, double stepSize, double turnOffset) {
@@ -239,64 +152,165 @@ public class UIGenerator {
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {
             ArrayList<double[]> storedOrbiterData = new ArrayList<>();
+            ArrayList<double[]> storedInterpolatedData = new ArrayList<>();
             double t = 0;
             int initial = 0;
-
+            int counter = 0;
             @Override
             public void run() {
-
                 Platform.runLater(() -> {
+
                     if (t >= 20000) {
                         timer.cancel();
                         centerGroup.getChildren().remove(newGroup);
                         tableView.getItems().remove(orbiterPointView3D);
                     }
+
                     double[] prev = newOrbiter.getData();
                     double[] next = newOrbiter.getData();
-                    for(int i = initial; i < storedOrbiterData.size() - 1; i++) {
-                        double[] test = storedOrbiterData.get(i+1);
-                        if (test[0] > t) {
+
+                    for (int i = initial; i < storedOrbiterData.size() - 1; i++) {
+                        next = storedOrbiterData.get(i + 1);
+                        if (next[0] > t) {
                             prev = storedOrbiterData.get(i).clone();
-                            next = storedOrbiterData.get(i+1).clone();
-                            initial = i;
+                            initial = 0;
                             break;
                         }
                     }
 
+                    double[] interpolatedData = DataGenerator.interpolate(t, prev, next);
 
-
-
-                    if (true) {
-                        double[] interpolatedData = newOrbiter.getData();
-                                interpolatedData = DataGenerator.interpolate(
-                                        t,
-                                        prev,
-                                        next);
-
-
-//                        double r = newOrbiter.getData()[1];
-//                        double phi = newOrbiter.getData()[3];
-//                        double time = newOrbiter.getData()[0];
-                        double r = interpolatedData[1];
-                        double phi = interpolatedData[3];
-                        double time = interpolatedData[0];
-                        orbiterBox.setTranslateX(r * Math.cos(phi));
-                        orbiterBox.setTranslateY(r * Math.sin(phi));
-                        Sphere tracer = new Sphere(1);
-                        tracer.setTranslateX(r * Math.cos(phi));
-                        tracer.setTranslateY(r * Math.sin(phi));
-                        Material tracerMaterial = new PhongMaterial(tracerColor);
-                        tracer.setMaterial(tracerMaterial);
-                        newGroup.getChildren().add(tracer);
-                        orbiterPointView3D.setPointLabels(getVisualCartesianCoordinates(orbiterBox));
-                        orbiterPointView3D.setTau(Double.toString(time));
+                    if (counter % 10 == 0) {
+                        plotOrbiter(newGroup, orbiterBox, orbiterPointView3D, interpolatedData, tracerColor);
                     }
+
                     storedOrbiterData.add(newOrbiter.getData().clone());
+                    storedInterpolatedData.add(interpolatedData.clone());
                     newOrbiter.rungeKutta(stepSize, turnOffset);
                     t += stepSize;
+                    counter++;
                 });
             }
         }, 0, 1);
+    }
+
+    private static void findTime(double t, ArrayList<double[]> storedOrbiterData,
+                                 double[] prev, double[] next, int initial) {
+        for (int i = initial; i < storedOrbiterData.size() - 1; i++) {
+            next = storedOrbiterData.get(i + 1);
+            if (next[0] > t) {
+                prev = storedOrbiterData.get(i).clone();
+                initial = i;
+                break;
+            }
+        }
+    }
+
+    private static void plotOrbiter(RotationGroup newGroup, Box orbiterBox,
+                                    PointView3D orbiterPointView3D, double[] interpolatedData, Color tracerColor) {
+        double r = interpolatedData[1];
+        double phi = interpolatedData[3];
+        double time = interpolatedData[0];
+        orbiterBox.setTranslateX(r * Math.cos(phi));
+        orbiterBox.setTranslateY(r * Math.sin(phi));
+        Sphere tracer = new Sphere(1);
+        tracer.setTranslateX(r * Math.cos(phi));
+        tracer.setTranslateY(r * Math.sin(phi));
+        Material tracerMaterial = new PhongMaterial(tracerColor);
+        tracer.setMaterial(tracerMaterial);
+        newGroup.getChildren().add(tracer);
+        orbiterPointView3D.setPointLabels(getVisualCartesianCoordinates(orbiterBox));
+        orbiterPointView3D.setTau(Double.toString(time));
+    }
+
+    public static class PointView3D {
+        private final SimpleStringProperty label;
+        private final SimpleStringProperty x;
+        private final SimpleStringProperty y;
+        private final SimpleStringProperty z;
+        private final SimpleStringProperty tau;
+
+        private PointView3D(String label, String x, String y, String z, String tau) {
+            this.label = new SimpleStringProperty(label);
+            this.x = new SimpleStringProperty(x);
+            this.y = new SimpleStringProperty(y);
+            this.z = new SimpleStringProperty(z);
+            this.tau = new SimpleStringProperty(tau);
+        }
+
+        private PointView3D(String label, Point3D point3D, String tau) {
+            this.label = new SimpleStringProperty(label);
+            this.x = new SimpleStringProperty(Double.toString(point3D.getX()));
+            this.y = new SimpleStringProperty(Double.toString(point3D.getY()));
+            this.z = new SimpleStringProperty(Double.toString(point3D.getZ()));
+            this.tau = new SimpleStringProperty(tau);
+        }
+
+        public String getLabel() {
+            return label.get();
+        }
+
+        public void setLabel(String label) {
+            this.label.set(label);
+        }
+
+        public SimpleStringProperty labelProperty() {
+            return label;
+        }
+
+        public String getX() {
+            return x.get();
+        }
+
+        public void setX(String x) {
+            this.x.set(x);
+        }
+
+        public SimpleStringProperty xProperty() {
+            return x;
+        }
+
+        public String getY() {
+            return y.get();
+        }
+
+        public void setY(String y) {
+            this.y.set(y);
+        }
+
+        public String getTau() {
+            return tau.get();
+        }
+
+        public void setTau(String tau) {
+            this.tau.set(tau);
+        }
+
+        public SimpleStringProperty tauProperty() {
+            return tau;
+        }
+
+        public SimpleStringProperty yProperty() {
+            return y;
+        }
+
+        public void setPointLabels(Point3D point3D) {
+            setX(Double.toString(point3D.getX()));
+            setY(Double.toString(point3D.getY()));
+            setZ(Double.toString(point3D.getZ()));
+        }
+
+        public String getZ() {
+            return z.get();
+        }
+
+        public void setZ(String z) {
+            this.z.set(z);
+        }
+
+        public SimpleStringProperty zProperty() {
+            return z;
+        }
     }
 
 
