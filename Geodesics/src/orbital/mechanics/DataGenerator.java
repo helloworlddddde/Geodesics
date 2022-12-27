@@ -1,5 +1,6 @@
 package orbital.mechanics;
 
+import javafx.animation.Interpolator;
 import orbital.entity.Orbiter;
 
 import java.util.ArrayList;
@@ -14,6 +15,13 @@ public class DataGenerator {
             orbiter.rungeKutta(stepSize, turnOffset);
         }
         return dataSet;
+    }
+
+
+
+    public static double interpolate(double target, double[] prevData, double[] currData) {
+        Interpolator linear = Interpolator.LINEAR;
+        return 0;
     }
 
     public static ArrayList<double[]> generatePotentialData(double minRadius, double maxRadius, double stepSize, Orbiter orbiter) {
