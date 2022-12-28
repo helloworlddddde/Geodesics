@@ -4,183 +4,45 @@ import com.sun.javafx.geometry.BoundsUtils;
 import javafx.geometry.Bounds;
 import javafx.geometry.Point3D;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.Material;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.shape.Sphere;
-import ui.PointView3D;
+import orbital.data.OrbitalData;
+import orbital.data.OrbitalIntegrator;
 import ui.RotationGroup;
 
 import java.util.ArrayList;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 public abstract class Orbiter extends Box {
 
-    private interface OrbitalIntegrator {
-        void orbitalIntegrate(ArrayList<Orbiter> neighbors);
-    }
-
-
-
-    protected OrbitalIntegrator orbitalIntegrator = this::rungeKuttaIntegrate;
-    protected int integratorOrder = 4;
-    protected RotationGroup orbitalPlane = new RotationGroup();
-    protected Material tracerMaterial = new PhongMaterial(Color.color(Math.random(), Math.random(), Math.random()));
-    protected PointView3D globalPointView3D;
-    protected PointView3D localPointView3D;
-    protected double mass;
-    protected double schMass;
-    protected double e;
-    protected double l;
-    protected int direction;
-    protected double[] data;
-    protected double[] rotationalOffsets;
-    protected boolean collided;
-    protected double stepSize = 0.2;
-
-    public void orbitalIntegrate(ArrayList<Orbiter> neighbors) {
-        orbitalIntegrator.orbitalIntegrate(neighbors);
-    }
-
-    public void setStepSize(double stepSize) {
-        this.stepSize = stepSize;
-    }
-
-    public void setOrbitalIntegrator(int k) {
-        switch(k) {
-            case 1:
-                orbitalIntegrator = this::eulerIntegrate;
-                integratorOrder = 1;
-                break;
-            case 4:
-                orbitalIntegrator = this::rungeKuttaIntegrate;
-                integratorOrder = 4;
-                break;
+    public void generateTracer() {
+        RotationGroup parent = (RotationGroup) getParent();
+        if (parent != null) {
+            Sphere tracer = new Sphere();
+            tracer.setMaterial(new PhongMaterial(tracerColor));
+            parent.getChildren().add(tracer);
+            tracer.setTranslateX(getTranslateX());
+            tracer.setTranslateY(getTranslateY());
         }
     }
 
-    public int getIntegratorOrder() {
-        return integratorOrder;
-    }
+    RotationGroup orbitalPlane;
 
-    public double getStepSize() {
-        return stepSize;
-    }
+    OrbitalIntegrator orbitalIntegrator = new OrbitalIntegrator(1);
 
-    public Orbiter(Orbiter orbiter) {
+    OrbitalData orbitalData;
+
+    Color tracerColor = Color.color(Math.random(), Math.random(), Math.random());
+
+
+    public Orbiter(OrbitalData orbitalData) {
         super(10, 10, 10);
-        setMaterial(new PhongMaterial(Color.color(Math.random(), Math.random(), Math.random())));
 
-        this.mass = orbiter.mass;
-        this.schMass = orbiter.schMass;
-        this.e = orbiter.e;
-        this.l = orbiter.l;
-        this.direction = orbiter.direction;
-        this.data = orbiter.data.clone();
-        this.rotationalOffsets = orbiter.rotationalOffsets.clone();
-        this.collided = orbiter.collided;
-        orbitalPlane = new RotationGroup();
-        orbitalPlane.rotateByX(rotationalOffsets[0]);
-        orbitalPlane.rotateByY(rotationalOffsets[1]);
-        orbitalPlane.rotateByZ(rotationalOffsets[2]);
-        orbitalPlane.getChildren().add(this);
-        translate();
-    }
+        this.orbitalData = orbitalData.clone();
 
-    public Orbiter(double mass, double schMass, double e, double l, int direction) {
-        super(10, 10, 10);
-        setMaterial(new PhongMaterial(Color.color(Math.random(), Math.random(), Math.random())));
-        orbitalPlane.getChildren().add(this);
-        this.mass = mass;
-        this.schMass = schMass;
-        this.e = e;
-        this.l = l;
-        this.direction = direction;
-        data = new double[5];
-        rotationalOffsets = new double[3];
-        collided = false;
-    }
-
-    public static Point3D toSpherical(Point3D point3D) {
-        double x = point3D.getX();
-        double y = point3D.getY();
-
-        double r = Math.sqrt(x * x + y * y);
-        double theta = Math.PI / 2;
-        double phi = Math.atan(Math.abs(y / x));
-
-        if (y >= 0 && x >= 0) {
-            phi = phi;
-        } else if (y >= 0 && x <= 0) {
-            phi = Math.PI - phi;
-        } else if (y <= 0 && x <= 0) {
-            phi = Math.PI + phi;
-        } else if (y <= 0 && x >= 0) {
-            phi = 2 * Math.PI - phi;
-        }
-
-        return new Point3D(r, theta, phi);
-    }
-
-    public void setInitialConditions(double[] data, double[] rotationalOffsets) {
-        this.data = data;
-        this.rotationalOffsets = rotationalOffsets;
-        orbitalPlane.rotateByX(rotationalOffsets[0]);
-        orbitalPlane.rotateByY(rotationalOffsets[1]);
-        orbitalPlane.rotateByZ(rotationalOffsets[2]);
-        translate();
-    }
-
-    @Override
-    public String toString() {
-        return "[Orbiter: " +
-                mass + ", " +
-                schMass + ", " +
-                e + ", " +
-                l + ", " +
-                direction + ", " +
-                data[1] + ", " +
-                data[3] + ", " +
-                rotationalOffsets[0] + ", " +
-                rotationalOffsets[1] + ", " +
-                rotationalOffsets[2] + ", " +
-                stepSize + ", " +
-                integratorOrder + "]";
-    }
-
-    public double getMinimumE() {
-        return Math.sqrt(2*effectivePotential(data[1])+1);
-    }
-    public double[] getData() {
-        return data.clone();
-    }
-
-    public void setData(double[] data) {
-        this.data = data.clone();
-    }
-
-    public boolean isCollided() {
-        return collided;
-    }
-
-    public void setCollided(boolean collided) {
-        this.collided = collided;
-    }
-
-    public double getE() {
-        return e;
-    }
-
-    public void setE(double e) {
-        this.e = e;
-    }
-
-    public double getL() {
-        return l;
-    }
-
-    public void setL(double l) {
-        this.l = l;
+        RotationGroup orbitalPlane = new RotationGroup();
+        setOrbitalPlane(orbitalPlane);
     }
 
     public RotationGroup getOrbitalPlane() {
@@ -190,118 +52,109 @@ public abstract class Orbiter extends Box {
     public void setOrbitalPlane(RotationGroup orbitalPlane) {
         this.orbitalPlane = orbitalPlane;
         orbitalPlane.getChildren().add(this);
+        orbitalPlane.rotateByX(orbitalData.getRotationalData(OrbitalData.X_INDEX));
+        orbitalPlane.rotateByX(orbitalData.getRotationalData(OrbitalData.Y_INDEX));
+        orbitalPlane.rotateByX(orbitalData.getRotationalData(OrbitalData.Z_INDEX));
     }
 
-    public abstract double effectivePotential(double radius);
+    public abstract double computeEffectivePotential(double r, double l);
 
-    public abstract double geodesicArgument(double radius);
-    public abstract double geodesicFunction(double radius);
+    public abstract double computeEpsilon();
 
-    public void rungeKuttaIntegrate(ArrayList<Orbiter> neighbors) {
+    public abstract double computeEffectivePotential();
 
-        double k1 = geodesicFunction(data[1]);
-        double k2 = geodesicFunction(data[1] + stepSize * k1 / 2);
-        double k3 = geodesicFunction(data[1] + stepSize * k2 / 2);
-        double k4 = geodesicFunction(data[1] + stepSize * k3);
+    public abstract double computeGeodesicArgument(double r);
 
-        Supplier<Boolean> isTurningPoint = () ->
-                geodesicArgument(data[1] + (1.0/6.0) * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4)) < 0.000001;
+    public abstract double computeGeodesicArgument();
 
-        Supplier<Boolean> isCollision = () ->
-                data[1] + (1.0 / 6.0)
-                        * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4) < 0;
+    public abstract double computeGeodesicFunction();
 
+    public OrbitalData getOrbitalData() {
+        return orbitalData;
+    }
 
+    public static Point3D cartesianToSpherical(Point3D point3D) {
 
-        if (isTurningPoint.get()) {
-            if (isCollision.get()) {
-                collided = true;
+        double x = point3D.getX();
+        double y = point3D.getY();
+
+        double r = Math.sqrt(x * x + y * y);
+        double theta = Math.PI / 2;
+        double phi = Math.atan(Math.abs(y / x));
+
+        Function<Double, Double> adjustPhi = (p) -> {
+            if (y >= 0 && x >= 0) {
+                p = p;
+            } else if (y >= 0 && x <= 0) {
+                p = Math.PI - p;
+            } else if (y <= 0 && x <= 0) {
+                p = Math.PI + p;
+            } else if (y <= 0 && x >= 0) {
+                p = 2 * Math.PI - p;
             }
+            return p;
+        };
 
-            direction *= -1;
+        phi = adjustPhi.apply(phi);
+
+        return new Point3D(r, theta, phi);
+    }
+
+
+    public static void rungeKuttaIntegrate(Orbiter orbiter, ArrayList<Orbiter> neighbors) {
+
+    }
+
+    public static void eulerIntegrate(Orbiter orbiter, ArrayList<Orbiter> neighbors) {
+
+        double[] equatorialData = orbiter.getOrbitalData().getEquatorialData();
+        double r = equatorialData[OrbitalData.R_INDEX];
+        double d = orbiter.getOrbitalData().getEquatorialData(OrbitalData.DIRECTION_INDEX);
+
+        double h = orbiter.getOrbitalData().getUtilityData(OrbitalData.STEP_SIZE_INDEX);
+
+        double k1 = orbiter.computeGeodesicFunction();
+        double k1_ = orbiter.computeGeodesicArgument(r + d * h * k1);
+
+        if (k1_ < 0.000001) {
+            d *= -1;
         }
 
-        if (isCollision.get()) {
-            collided = true;
-        }
 
-        data[3] += stepSize * l / Math.pow(data[1], 2);
-        data[0] += stepSize * e / (1 - 2 * schMass / data[1]);
-        data[1] += (1.0 / 6) * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4);
-        data[2] = Math.PI / 2;
-        data[4] += stepSize;
 
-        for (Orbiter neighbor : neighbors) {
-            if (neighbor != this) {
-                Point3D globalPoint1 = getGlobalCartesianCoordinates();
-                Point3D globalPoint2 = neighbor.getGlobalCartesianCoordinates();
-                double distance = globalPoint1.distance(globalPoint2);
-            }
-        }
+
+        double e = equatorialData[OrbitalData.E_INDEX];
+        double l = equatorialData[OrbitalData.L_INDEX];
+
+        double M = orbiter.getOrbitalData().getMassData(OrbitalData.SCH_MASS_INDEX);
+
+
+        equatorialData[OrbitalData.T_INDEX] += h;
+
+        equatorialData[OrbitalData.TAU_INDEX] += h * (1 - 2 * (M / r)) / e;
+
+        equatorialData[OrbitalData.R_INDEX] += d * h * k1;
+
+        equatorialData[OrbitalData.THETA_INDEX] += 0;
+
+        equatorialData[OrbitalData.PHI_INDEX] += h * ((1 - 2 * (M / r)) * l) /
+                (Math.pow(r, 2) * e);
+
+        equatorialData[OrbitalData.DIRECTION_INDEX] = d;
+
+        orbiter.getOrbitalData().setEquatorialData(equatorialData);
 
 
     }
 
-    public void eulerIntegrate(ArrayList<Orbiter> neighbors) {
-        double k1 = geodesicFunction(data[1]);
-
-        Supplier<Boolean> isTurningPoint = () ->
-                geodesicArgument(data[1] + stepSize * direction * k1) < 0.000001;
 
 
-        Supplier<Boolean> isCollision = () ->
-                data[1] + stepSize * direction * k1 < 0;
-
-        if (isTurningPoint.get()) {
-            if (isCollision.get()) {
-                collided = true;
-            }
-
-            direction *= -1;
-        }
-
-        if (isCollision.get()) {
-            collided = true;
-        }
-        data[3] += stepSize * l / Math.pow(data[1], 2);
-        data[0] += stepSize * e / (1 - 2 * schMass / data[1]);
-        data[1] += stepSize * direction * k1;
-        data[2] = Math.PI / 2;
-        data[4] += stepSize;
-
-    }
 
     public void translate() {
-        setTranslateX(data[1] * Math.cos(data[3]));
-        setTranslateY(data[1] * Math.sin(data[3]));
-        globalPointView3D = new PointView3D(getGlobalCartesianCoordinates(), Double.toString(data[4]));
-        localPointView3D = new PointView3D(getLocalCartesianCoordinates(), Double.toString(data[4]));
-        generateTracer();
-
-        Point3D cartesianPoint = getGlobalCartesianCoordinates();
-        cartesianPoint = globalToLocal(cartesianPoint);
-        Point3D sphericalPoint = toSpherical(cartesianPoint);
-
-        data[1] = sphericalPoint.getX();
-        data[2] = sphericalPoint.getY();
-        data[3] = sphericalPoint.getZ();
-
-    }
-
-    public PointView3D getGlobalPointView3D() {
-        return globalPointView3D;
-    }
-
-    public void setGlobalPointView3D(PointView3D globalPointView3D) {
-        this.globalPointView3D = globalPointView3D;
-    }
-
-    public PointView3D getLocalPointView3D() {
-        return localPointView3D;
-    }
-
-    public void setLocalPointView3D(PointView3D localPointView3D) {
-        this.localPointView3D = localPointView3D;
+        double r = orbitalData.getEquatorialData(OrbitalData.R_INDEX);
+        double phi = orbitalData.getEquatorialData(OrbitalData.PHI_INDEX);
+        setTranslateX(r * Math.cos(phi));
+        setTranslateY(r * Math.sin(phi));
     }
 
     public Point3D getGlobalCartesianCoordinates() {
@@ -332,53 +185,6 @@ public abstract class Orbiter extends Box {
         return new Point3D(x, y, z);
     }
 
-    public double getMass() {
-        return mass;
-    }
-
-    public void setMass(double mass) {
-        this.mass = mass;
-    }
-
-    public double getSchMass() {
-        return schMass;
-    }
-
-    public void setSchMass(double schMass) {
-        this.schMass = schMass;
-    }
-
-    public int getDirection() {
-        return direction;
-    }
-
-    public void setDirection(int direction) {
-        this.direction = direction;
-    }
-
-    public double[] getRotationalOffsets() {
-        return rotationalOffsets;
-    }
-
-    public void setRotationalOffsets(double[] rotationalOffsets) {
-        this.rotationalOffsets = rotationalOffsets;
-    }
-
-    public void setTracerMaterial(Material tracerMaterial) {
-        this.tracerMaterial = tracerMaterial;
-    }
-
-    public void generateTracer() {
-        RotationGroup parent = (RotationGroup) getParent();
-        if (parent != null) {
-            Sphere tracer = new Sphere(1);
-            tracer.setMaterial(tracerMaterial);
-            parent.getChildren().add(tracer);
-            tracer.setTranslateX(getTranslateX());
-            tracer.setTranslateY(getTranslateY());
-        }
-
-    }
 }
 
 

@@ -10,16 +10,16 @@ import java.util.ArrayList;
 
 public class DataVisualizer {
 
-    public static LineChart<Number, Number> generateChart(ArrayList<double[]>... dataSets) {
+    public static LineChart<Number, Number> generateChart(ArrayList<XYChart.Data<Number, Number>>... dataSets) {
 
         Axis<Number> xAxis = new NumberAxis();
         Axis<Number> yAxis = new NumberAxis();
         LineChart<Number, Number> lineChart = new LineChart<Number, Number>(xAxis, yAxis);
 
-        for(ArrayList<double[]> dataSet : dataSets) {
+        for(ArrayList<XYChart.Data<Number, Number>> dataSet : dataSets) {
             XYChart.Series<Number, Number> series = new XYChart.Series<Number, Number>();;
-            for(double[] dataPair : dataSet) {
-                series.getData().add(new XYChart.Data<Number, Number>(dataPair[0], dataPair[1]));
+            for(XYChart.Data<Number, Number> xyData : dataSet) {
+                series.getData().add(xyData);
             }
             lineChart.getData().add(series);
         }
