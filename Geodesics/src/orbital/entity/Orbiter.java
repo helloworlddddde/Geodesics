@@ -3,14 +3,21 @@ package orbital.entity;
 import com.sun.javafx.geometry.BoundsUtils;
 import javafx.geometry.Bounds;
 import javafx.geometry.Point3D;
+import javafx.scene.Parent;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Material;
+import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
+import javafx.scene.shape.Sphere;
 import ui.PointView3D;
+import ui.RotationGroup;
 
 import java.util.ArrayList;
 import java.util.function.Supplier;
 
 public abstract class Orbiter extends Box {
-
+    protected RotationGroup orbitalPlane = new RotationGroup();
+    protected Material tracerMaterial = new PhongMaterial(Color.color(Math.random(), Math.random(), Math.random()));
     protected PointView3D globalPointView3D;
     protected PointView3D localPointView3D;
     protected double mass;
@@ -24,6 +31,8 @@ public abstract class Orbiter extends Box {
 
     public Orbiter(Orbiter orbiter) {
         super(10, 10, 10);
+        setMaterial(new PhongMaterial(Color.color(Math.random(), Math.random(), Math.random())));
+
         this.mass = orbiter.mass;
         this.schMass = orbiter.schMass;
         this.e = orbiter.e;
@@ -32,28 +41,50 @@ public abstract class Orbiter extends Box {
         this.data = orbiter.data.clone();
         this.rotationalOffsets = orbiter.rotationalOffsets.clone();
         this.collided = orbiter.collided;
+        orbitalPlane = new RotationGroup();
+        orbitalPlane.rotateByX(rotationalOffsets[0]);
+        orbitalPlane.rotateByY(rotationalOffsets[1]);
+        orbitalPlane.getChildren().add(this);
+        translate();
+
     }
 
     public Orbiter(double mass, double schMass, double e, double l, int direction) {
         super(10, 10, 10);
+        setMaterial(new PhongMaterial(Color.color(Math.random(), Math.random(), Math.random())));
+        orbitalPlane.getChildren().add(this);
         this.mass = mass;
         this.schMass = schMass;
         this.e = e;
         this.l = l;
         this.direction = direction;
         data = new double[5];
-        globalPointView3D = new PointView3D("", getGlobalCartesianCoordinates(), Double.toString(data[4]));
-        localPointView3D = new PointView3D("", getLocalCartesianCoordinates(), Double.toString(data[4]));
+        rotationalOffsets = new double[2];
         collided = false;
     }
+
+
 
     public void setInitialConditions(double[] data, double[] rotationalOffsets) {
         this.data = data;
         this.rotationalOffsets = rotationalOffsets;
-        setTranslateX(data[1] * Math.cos(data[3]));
-        setTranslateY(data[1] * Math.sin(data[3]));
-        globalPointView3D = new PointView3D("", getGlobalCartesianCoordinates(), Double.toString(data[4]));
-        localPointView3D = new PointView3D("", getLocalCartesianCoordinates(), Double.toString(data[4]));
+        orbitalPlane.rotateByX(rotationalOffsets[0]);
+        orbitalPlane.rotateByY(rotationalOffsets[1]);
+        translate();
+    }
+
+    @Override
+    public String toString() {
+        return "[Orbiter: " +
+                mass + ", " +
+                schMass + ", " +
+                e + ", " +
+                l + ", " +
+                direction + ", " +
+                data[1] + ", " +
+                data[3] +", " +
+                rotationalOffsets[0] + ", " +
+                rotationalOffsets[1] + "]";
     }
 
     public double[] getData() {
@@ -70,6 +101,15 @@ public abstract class Orbiter extends Box {
 
     public double getL() {
         return l;
+    }
+
+    public RotationGroup getOrbitalPlane() {
+        return orbitalPlane;
+    }
+
+    public void setOrbitalPlane(RotationGroup orbitalPlane) {
+        this.orbitalPlane = orbitalPlane;
+        orbitalPlane.getChildren().add(this);
     }
 
     public abstract double effectivePotential(double radius);
@@ -117,22 +157,24 @@ public abstract class Orbiter extends Box {
         data[2] = Math.PI/2;
         data[4] += stepSize;
 
-        setTranslateX(data[1] * Math.cos(data[3]));
-        setTranslateY(data[1] * Math.sin(data[3]));
-
-
         for(Orbiter neighbor : neighbors) {
             if (neighbor != this) {
                 Point3D globalPoint1 = getGlobalCartesianCoordinates();
                 Point3D globalPoint2 = neighbor.getGlobalCartesianCoordinates();
                 double distance = globalPoint1.distance(globalPoint2);
-                System.out.println(distance);
             }
         }
 
+
+
+    }
+
+    public void translate() {
+        setTranslateX(data[1] * Math.cos(data[3]));
+        setTranslateY(data[1] * Math.sin(data[3]));
         globalPointView3D = new PointView3D("", getGlobalCartesianCoordinates(), Double.toString(data[4]));
         localPointView3D = new PointView3D("", getLocalCartesianCoordinates(), Double.toString(data[4]));
-
+        generateTracer();
     }
 
     public static Point3D toSpherical(Point3D point3D) {
@@ -191,9 +233,77 @@ public abstract class Orbiter extends Box {
         return new Point3D(x, y, z);
     }
 
+    public void setGlobalPointView3D(PointView3D globalPointView3D) {
+        this.globalPointView3D = globalPointView3D;
+    }
 
+    public void setLocalPointView3D(PointView3D localPointView3D) {
+        this.localPointView3D = localPointView3D;
+    }
 
+    public double getMass() {
+        return mass;
+    }
 
+    public void setMass(double mass) {
+        this.mass = mass;
+    }
+
+    public double getSchMass() {
+        return schMass;
+    }
+
+    public void setSchMass(double schMass) {
+        this.schMass = schMass;
+    }
+
+    public void setE(double e) {
+        this.e = e;
+    }
+
+    public void setL(double l) {
+        this.l = l;
+    }
+
+    public int getDirection() {
+        return direction;
+    }
+
+    public void setDirection(int direction) {
+        this.direction = direction;
+    }
+
+    public void setData(double[] data) {
+        this.data = data.clone();
+    }
+
+    public double[] getRotationalOffsets() {
+        return rotationalOffsets;
+    }
+
+    public void setRotationalOffsets(double[] rotationalOffsets) {
+        this.rotationalOffsets = rotationalOffsets;
+    }
+
+    public void setCollided(boolean collided) {
+        this.collided = collided;
+    }
+
+    public void setTracerMaterial(Material tracerMaterial) {
+        this.tracerMaterial = tracerMaterial;
+    }
+
+    public void generateTracer() {
+        RotationGroup parent = (RotationGroup) getParent();
+        if (parent != null) {
+            Sphere tracer = new Sphere(1);
+            tracer.setMaterial(tracerMaterial);
+            parent.getChildren().add(tracer);
+            tracer.setTranslateX(getTranslateX());
+            tracer.setTranslateY(getTranslateY());
+        }
+
+    }
 }
 
 
