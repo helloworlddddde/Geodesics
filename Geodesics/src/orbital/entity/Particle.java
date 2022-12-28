@@ -17,6 +17,11 @@ public class Particle extends Orbiter {
     }
 
     @Override
+    public double geodesicArgument(double radius) {
+        return (Math.pow(e, 2) - 1) / 2 - effectivePotential(radius);
+    }
+
+    @Override
     public double geodesicFunction(double radius) {
         return Math.sqrt(2 * ((Math.pow(e, 2) - 1) / 2 - effectivePotential(radius)));
     }

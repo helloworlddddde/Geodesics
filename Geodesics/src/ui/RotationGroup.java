@@ -22,4 +22,11 @@ public class RotationGroup extends Group {
         this.getTransforms().clear();
         this.getTransforms().addAll(t);
     }
+
+    public void rotateByZ(double ang) {
+        r = new Rotate(ang, Rotate.Z_AXIS);
+        t = t.createConcatenation(r);
+        this.getTransforms().clear();
+        this.getTransforms().addAll(t);
+    }
 }

@@ -2,10 +2,7 @@ package ui;
 
 import javafx.application.Platform;
 import javafx.geometry.Pos;
-import javafx.scene.Camera;
-import javafx.scene.PerspectiveCamera;
-import javafx.scene.Scene;
-import javafx.scene.SubScene;
+import javafx.scene.*;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
@@ -20,14 +17,15 @@ import orbital.mechanics.DataGenerator;
 import orbital.mechanics.OrbitalSimulator;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class UIGenerator {
 
     public static SubScene generateEffectivePotentialSubScene(Orbiter orbiter) {
-        ArrayList<double[]> effectivePotentialData = DataGenerator.generatePotentialData(3, 100, 0.3, orbiter);
-        ArrayList<double[]> epsilonData = DataGenerator.generateEpsilonData(3, 100, 0.3, orbiter);
+        ArrayList<double[]> effectivePotentialData = DataGenerator.generateEffectivePotentialData(2.75, 100, 0.05, orbiter);
+        ArrayList<double[]> epsilonData = DataGenerator.generateEpsilonData(2.75, 100, 0.05, orbiter);
         SubScene subScene = new SubScene(DataVisualizer.generateChart(effectivePotentialData, epsilonData), 500, 500);
         return subScene;
     }
@@ -67,26 +65,31 @@ public class UIGenerator {
     private static SubScene generateOrbiterLauncherSubScene(Orbiter orbiter, SubScene simulationSubScene, SubScene orbiterTrackerSubScene) {
 
         Button addOrbiterButton = new Button("Add Orbiter");
-        addOrbiterButton.setMinWidth(250);
+        addOrbiterButton.setMinWidth(125);
         Button launchOrbiterButton = new Button("Launch Orbiters");
-        launchOrbiterButton.setMinWidth(250);
-        TextField stepSizeTextField = new TextField();
-        stepSizeTextField.setMinWidth(125);
-        stepSizeTextField.setPromptText("Δt");
-        TextField turnOffsetTextField = new TextField();
-        turnOffsetTextField.setMinWidth(125);
-        turnOffsetTextField.setPromptText("η");
+        launchOrbiterButton.setMinWidth(125);
+        Button removeAllOrbitersButton = new Button("Remove All Orbiters");
+        removeAllOrbitersButton.setMinWidth(250);
+        TextField globalStepSizeTextField = new TextField();
+        globalStepSizeTextField.setMinWidth(125);
+        globalStepSizeTextField.setPromptText("Δt");
+        globalStepSizeTextField.setText("0.2");
         TextField durationTextField = new TextField();
         durationTextField.setMinWidth(125);
         durationTextField.setPromptText("T");
+        durationTextField.setText("20000");
         TextField timerTextField = new TextField();
         timerTextField.setMinWidth(125);
         timerTextField.setEditable(false);
-        timerTextField.setText("t: 0");
+        timerTextField.setText("ΔT: " + 0);
+        TextField playbackTimeResolutionTextField = new TextField();
+        playbackTimeResolutionTextField.setMinWidth(125);
+        playbackTimeResolutionTextField.setPromptText("Ω");
+        playbackTimeResolutionTextField.setText("10");
 
 
-        HBox horizontalUtilityBox = new HBox(stepSizeTextField, turnOffsetTextField, durationTextField, timerTextField);
-        HBox horizontalLauncherBox = new HBox(addOrbiterButton, launchOrbiterButton);
+        HBox horizontalUtilityBox = new HBox(globalStepSizeTextField, durationTextField, timerTextField, playbackTimeResolutionTextField);
+        HBox horizontalLauncherBox = new HBox(launchOrbiterButton, addOrbiterButton, removeAllOrbitersButton);
         VBox verticalScrollableLauncherBox = new VBox();
         ScrollPane launcherScrollPane = new ScrollPane(verticalScrollableLauncherBox);
         launcherScrollPane.setMinWidth(500);
@@ -101,11 +104,17 @@ public class UIGenerator {
             orbiters.add(new Particle(orbiter));
         });
 
+        removeAllOrbitersButton.setOnAction(event -> {
+           orbiters.clear();
+           verticalScrollableLauncherBox.getChildren().clear();
+        });
+
+
 
         launchOrbiterButton.setOnAction(event -> {
-            double stepSize = Double.parseDouble(stepSizeTextField.getText());
-            double turnOffset = Double.parseDouble(turnOffsetTextField.getText());
+            double globalStepSize = Double.parseDouble(globalStepSizeTextField.getText());
             double duration = Double.parseDouble(durationTextField.getText());
+            int playbackTimeResolution = Integer.parseInt(playbackTimeResolutionTextField.getText());
             RotationGroup centerPlane = (RotationGroup) simulationSubScene.getRoot();
             TableView<PointView3D> orbiterTrackerTableView = (TableView) orbiterTrackerSubScene.getRoot();
             for(Orbiter o : orbiters) {
@@ -113,7 +122,7 @@ public class UIGenerator {
             }
 
 
-            OrbitalSimulator orbitalSimulator = new OrbitalSimulator(orbiters, stepSize, turnOffset, duration);
+            OrbitalSimulator orbitalSimulator = new OrbitalSimulator(true, orbiters, globalStepSize, duration);
             ArrayList<ArrayList<double[]>> simulationData = orbitalSimulator.getSimulationData();
 
             for (int i = 0; i < orbiters.size(); i++) {
@@ -121,9 +130,9 @@ public class UIGenerator {
                 RotationGroup dummyOrbitalPlane = new RotationGroup();
                 dummyOrbitalPlane.rotateByX(o.getRotationalOffsets()[0]);
                 dummyOrbitalPlane.rotateByY(o.getRotationalOffsets()[1]);
+                dummyOrbitalPlane.rotateByZ(o.getRotationalOffsets()[2]);
                 o.setOrbitalPlane(dummyOrbitalPlane);
                 centerPlane.getChildren().add(o.getOrbitalPlane());
-
                 o.setData(simulationData.get(i).get(0));
                 o.translate();
             }
@@ -136,17 +145,27 @@ public class UIGenerator {
                 public void run() {
                     Platform.runLater(() -> {
                         if (count < simulationData.get(0).size()) {
-                            if (count % 10 == 0) {
-                                for (int i = 0; i < simulationData.size(); i++) {
-                                    Orbiter o = orbiters.get(i);
-                                    o.setData(simulationData.get(i).get(count));
-                                    o.translate();
-                                    orbiterTrackerTableView.getItems().set(i, o.getGlobalPointView3D());
-                                }
+                            for (int i = 0; i < simulationData.size(); i++) {
+                                Orbiter o = orbiters.get(i);
+                                o.setData(simulationData.get(i).get(count));
+                                o.translate();
+                                orbiterTrackerTableView.getItems().set(i, o.getGlobalPointView3D());
                             }
-                            count++;
+                            timerTextField.setText("ΔT: " + count * globalStepSize);
+                            count += playbackTimeResolution;
                         } else {
                             simulationTimer.cancel();
+                            centerPlane.getChildren().removeIf(child ->
+                                    !(child instanceof Box)
+                            );
+
+                            for(int i = 0; i < orbiters.size(); i++) {
+                                Orbiter o = orbiters.get(i);
+                                o.setData(simulationData.get(i).get(0));
+                                o = new Particle(o);
+                            }
+                            timerTextField.setText("ΔT: " + 0);
+                            orbiterTrackerTableView.getItems().clear();
                         }
 
                     });
@@ -167,7 +186,7 @@ public class UIGenerator {
     private static SubScene generateOrbiterSetupSubScene(SubScene effectivePotentialSubScene, Orbiter orbiter) {
         VBox verticalToolBox = new VBox();
         ArrayList<HBox> horizontalToolBoxes = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 13; i++) {
             Button inputButton = new Button();
             inputButton.setAlignment(Pos.BASELINE_LEFT);
             inputButton.setMinWidth(100);
@@ -216,25 +235,74 @@ public class UIGenerator {
                     inputButton.setText("Y");
                     inputTextField.setText(Double.toString(orbiter.getRotationalOffsets()[1]));
                     break;
+                case 10:
+                    inputButton.setText("Z");
+                    inputTextField.setText(Double.toString(orbiter.getRotationalOffsets()[2]));
+                    break;
+                case 11:
+                    inputButton.setText("Δτ");
+                    inputTextField.setText(Double.toString(orbiter.getStepSize()));
+                    break;
+                case 12:
+                    inputButton.setText("RKn");
+                    inputTextField.setText(Integer.toString(orbiter.getIntegratorOrder()));
+                    break;
             }
             horizontalToolBoxes.add(horizontalToolBox);
         }
 
 
         Button updateButton = new Button("update");
-        updateButton.setAlignment(Pos.BASELINE_LEFT);
+        updateButton.setAlignment(Pos.BASELINE_CENTER);
         updateButton.setMinWidth(100);
-        HBox submissionToolBox = new HBox(updateButton);
+
+        TextField indicateMinimumETextField = new TextField("є: " + String.format("%6.4e", orbiter.getMinimumE()));
+        indicateMinimumETextField.setMinWidth(100);
+        indicateMinimumETextField.setEditable(false);
+
+
+        Button markCriticalPointsButton = new Button("mark radii");
+        markCriticalPointsButton.setMinWidth(100);
+        TextField markCriticalPointsTextField = new TextField(String.format("%6.4e", -1.0) + ", " + String.format("%6.4e", -1.0));
+        markCriticalPointsTextField.setMinWidth(200);
+        markCriticalPointsTextField.setEditable(false);
+        markCriticalPointsButton.setOnAction(event -> {
+
+            LineChart<Number, Number> effectivePotentialChart = (LineChart<Number, Number>) effectivePotentialSubScene.getRoot();
+            XYChart.Series<Number, Number> effectivePotentialSeries = effectivePotentialChart.getData().get(0);
+            double rMax = -1;
+            double rMin = -1;
+            for(int i = 0; i < effectivePotentialSeries.getData().size() - 2; i++) {
+                XYChart.Data<Number, Number> prev = effectivePotentialSeries.getData().get(i);
+                XYChart.Data<Number, Number> curr = effectivePotentialSeries.getData().get(i+1);
+                XYChart.Data<Number, Number> next = effectivePotentialSeries.getData().get(i+2);
+
+                if (((double) prev.getYValue() <= (double) curr.getYValue() && (double) curr.getYValue() >= (double) next.getYValue())) {
+                    rMax = (double) curr.getXValue();
+                }
+
+                if (((double) prev.getYValue() >= (double) curr.getYValue() && (double) curr.getYValue() <= (double) next.getYValue())) {
+                    rMin = (double) curr.getXValue();
+                }
+            }
+
+            markCriticalPointsTextField.setText(String.format("%6.4e", rMax) + ", " + String.format("%6.4e", rMin));
+
+        });
+
+        HBox submissionToolBox = new HBox(updateButton, indicateMinimumETextField, markCriticalPointsButton, markCriticalPointsTextField);
+
         verticalToolBox.getChildren().addAll(horizontalToolBoxes);
         verticalToolBox.getChildren().add(submissionToolBox);
+
         updateButton.setOnAction(event -> {
 
-            double[] updatedParameters = new double[10];
-            for (int i = 0; i < 10; i++) {
+
+            double[] updatedParameters = new double[13];
+            for (int i = 0; i < 13; i++) {
                 TextField inputTextField = (TextField) horizontalToolBoxes.get(i).getChildren().get(1);
                 String inputText = inputTextField.getText();
                 updatedParameters[i] = Double.parseDouble(inputText);
-
             }
 
             orbiter.setMass(updatedParameters[0]);
@@ -244,16 +312,18 @@ public class UIGenerator {
             orbiter.setDirection((int) updatedParameters[4]);
             orbiter.setInitialConditions(
                     new double[]{0, updatedParameters[5], Math.PI / 2, updatedParameters[6], 0},
-                    new double[]{updatedParameters[8], updatedParameters[9]}
+                    new double[]{updatedParameters[8], updatedParameters[9], updatedParameters[10]}
             );
-            ArrayList<double[]> effectivePotentialData = DataGenerator.generatePotentialData(3, updatedParameters[7], 0.3, orbiter);
-            ArrayList<double[]> epsilonData = DataGenerator.generateEpsilonData(3, updatedParameters[7], 0.3, orbiter);
+            orbiter.setStepSize(updatedParameters[11]);
+            orbiter.setOrbitalIntegrator((int) updatedParameters[12]);
+            ArrayList<double[]> effectivePotentialData = DataGenerator.generateEffectivePotentialData(2.75, updatedParameters[7], 0.05, orbiter);
+            ArrayList<double[]> epsilonData = DataGenerator.generateEpsilonData(2.75, updatedParameters[7], 0.05, orbiter);
             LineChart<Number, Number> effectivePotentialChart = (LineChart<Number, Number>) effectivePotentialSubScene.getRoot();
 
             XYChart.Series<Number, Number> effectivePotentialSeries = new XYChart.Series<Number, Number>();
-            ;
+
             XYChart.Series<Number, Number> epsilonSeries = new XYChart.Series<Number, Number>();
-            ;
+
 
             for (double[] dataPair : effectivePotentialData) {
                 effectivePotentialSeries.getData().add(new XYChart.Data<Number, Number>(dataPair[0], dataPair[1]));
@@ -266,8 +336,9 @@ public class UIGenerator {
             effectivePotentialChart.getData().set(0, effectivePotentialSeries);
             effectivePotentialChart.getData().set(1, epsilonSeries);
 
-        });
+            indicateMinimumETextField.setText("є: " + String.format("%6.4e", orbiter.getMinimumE()));
 
+        });
 
         SubScene subScene = new SubScene(verticalToolBox, 500, 500);
         return subScene;
@@ -275,8 +346,6 @@ public class UIGenerator {
 
     private static SubScene generateOrbiterTrackerSubScene() {
         TableView<PointView3D> tableView = new TableView<>();
-        TableColumn<PointView3D, String> labelColumn = new TableColumn("Label");
-        labelColumn.setCellValueFactory(new PropertyValueFactory<>("label"));
         TableColumn<PointView3D, String> xColumn = new TableColumn("x");
         xColumn.setCellValueFactory(new PropertyValueFactory<>("x"));
         TableColumn<PointView3D, String> yColumn = new TableColumn("y");
@@ -285,10 +354,10 @@ public class UIGenerator {
         zColumn.setCellValueFactory(new PropertyValueFactory<>("z"));
         TableColumn<PointView3D, String> tauColumn = new TableColumn("τ");
         tauColumn.setCellValueFactory(new PropertyValueFactory<>("tau"));
-        tableView.getColumns().addAll(labelColumn, xColumn, yColumn, zColumn, tauColumn);
+        tableView.getColumns().addAll(xColumn, yColumn, zColumn, tauColumn);
 
         for (TableColumn column : tableView.getColumns()) {
-            column.setMinWidth(100);
+            column.setMinWidth(124.5);
         }
         SubScene subScene = new SubScene(tableView, 500, 500);
         return subScene;
@@ -317,6 +386,12 @@ public class UIGenerator {
                     break;
                 case S:
                     group.rotateByX(10);
+                    break;
+                case Q:
+                    group.rotateByZ(-10);
+                    break;
+                case E:
+                    group.rotateByZ(10);
                     break;
             }
         });

@@ -3,7 +3,6 @@ package orbital.entity;
 import com.sun.javafx.geometry.BoundsUtils;
 import javafx.geometry.Bounds;
 import javafx.geometry.Point3D;
-import javafx.scene.Parent;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Material;
 import javafx.scene.paint.PhongMaterial;
@@ -16,6 +15,15 @@ import java.util.ArrayList;
 import java.util.function.Supplier;
 
 public abstract class Orbiter extends Box {
+
+    private interface OrbitalIntegrator {
+        void orbitalIntegrate(ArrayList<Orbiter> neighbors);
+    }
+
+
+
+    protected OrbitalIntegrator orbitalIntegrator = this::rungeKuttaIntegrate;
+    protected int integratorOrder = 4;
     protected RotationGroup orbitalPlane = new RotationGroup();
     protected Material tracerMaterial = new PhongMaterial(Color.color(Math.random(), Math.random(), Math.random()));
     protected PointView3D globalPointView3D;
@@ -28,6 +36,36 @@ public abstract class Orbiter extends Box {
     protected double[] data;
     protected double[] rotationalOffsets;
     protected boolean collided;
+    protected double stepSize = 0.2;
+
+    public void orbitalIntegrate(ArrayList<Orbiter> neighbors) {
+        orbitalIntegrator.orbitalIntegrate(neighbors);
+    }
+
+    public void setStepSize(double stepSize) {
+        this.stepSize = stepSize;
+    }
+
+    public void setOrbitalIntegrator(int k) {
+        switch(k) {
+            case 1:
+                orbitalIntegrator = this::eulerIntegrate;
+                integratorOrder = 1;
+                break;
+            case 4:
+                orbitalIntegrator = this::rungeKuttaIntegrate;
+                integratorOrder = 4;
+                break;
+        }
+    }
+
+    public int getIntegratorOrder() {
+        return integratorOrder;
+    }
+
+    public double getStepSize() {
+        return stepSize;
+    }
 
     public Orbiter(Orbiter orbiter) {
         super(10, 10, 10);
@@ -44,9 +82,9 @@ public abstract class Orbiter extends Box {
         orbitalPlane = new RotationGroup();
         orbitalPlane.rotateByX(rotationalOffsets[0]);
         orbitalPlane.rotateByY(rotationalOffsets[1]);
+        orbitalPlane.rotateByZ(rotationalOffsets[2]);
         orbitalPlane.getChildren().add(this);
         translate();
-
     }
 
     public Orbiter(double mass, double schMass, double e, double l, int direction) {
@@ -59,17 +97,37 @@ public abstract class Orbiter extends Box {
         this.l = l;
         this.direction = direction;
         data = new double[5];
-        rotationalOffsets = new double[2];
+        rotationalOffsets = new double[3];
         collided = false;
     }
 
+    public static Point3D toSpherical(Point3D point3D) {
+        double x = point3D.getX();
+        double y = point3D.getY();
 
+        double r = Math.sqrt(x * x + y * y);
+        double theta = Math.PI / 2;
+        double phi = Math.atan(Math.abs(y / x));
+
+        if (y >= 0 && x >= 0) {
+            phi = phi;
+        } else if (y >= 0 && x <= 0) {
+            phi = Math.PI - phi;
+        } else if (y <= 0 && x <= 0) {
+            phi = Math.PI + phi;
+        } else if (y <= 0 && x >= 0) {
+            phi = 2 * Math.PI - phi;
+        }
+
+        return new Point3D(r, theta, phi);
+    }
 
     public void setInitialConditions(double[] data, double[] rotationalOffsets) {
         this.data = data;
         this.rotationalOffsets = rotationalOffsets;
         orbitalPlane.rotateByX(rotationalOffsets[0]);
         orbitalPlane.rotateByY(rotationalOffsets[1]);
+        orbitalPlane.rotateByZ(rotationalOffsets[2]);
         translate();
     }
 
@@ -82,25 +140,47 @@ public abstract class Orbiter extends Box {
                 l + ", " +
                 direction + ", " +
                 data[1] + ", " +
-                data[3] +", " +
+                data[3] + ", " +
                 rotationalOffsets[0] + ", " +
-                rotationalOffsets[1] + "]";
+                rotationalOffsets[1] + ", " +
+                rotationalOffsets[2] + ", " +
+                stepSize + ", " +
+                integratorOrder + "]";
     }
 
+    public double getMinimumE() {
+        return Math.sqrt(2*effectivePotential(data[1])+1);
+    }
     public double[] getData() {
-        return data;
+        return data.clone();
+    }
+
+    public void setData(double[] data) {
+        this.data = data.clone();
     }
 
     public boolean isCollided() {
         return collided;
     }
 
+    public void setCollided(boolean collided) {
+        this.collided = collided;
+    }
+
     public double getE() {
         return e;
     }
 
+    public void setE(double e) {
+        this.e = e;
+    }
+
     public double getL() {
         return l;
+    }
+
+    public void setL(double l) {
+        this.l = l;
     }
 
     public RotationGroup getOrbitalPlane() {
@@ -114,17 +194,10 @@ public abstract class Orbiter extends Box {
 
     public abstract double effectivePotential(double radius);
 
+    public abstract double geodesicArgument(double radius);
     public abstract double geodesicFunction(double radius);
 
-    public void rungeKutta(double stepSize, double turnOffset, ArrayList<Orbiter> neighbors) {
-
-        Point3D cartesianPoint = getGlobalCartesianCoordinates();
-        cartesianPoint = globalToLocal(cartesianPoint);
-        Point3D sphericalPoint = toSpherical(cartesianPoint);
-        data[1] = sphericalPoint.getX();
-        data[2] = sphericalPoint.getY();
-        data[3] = sphericalPoint.getZ();
-
+    public void rungeKuttaIntegrate(ArrayList<Orbiter> neighbors) {
 
         double k1 = geodesicFunction(data[1]);
         double k2 = geodesicFunction(data[1] + stepSize * k1 / 2);
@@ -132,18 +205,19 @@ public abstract class Orbiter extends Box {
         double k4 = geodesicFunction(data[1] + stepSize * k3);
 
         Supplier<Boolean> isTurningPoint = () ->
-                Double.isNaN(geodesicFunction(data[1] + (1.0 / turnOffset)
-                        * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4)));
+                geodesicArgument(data[1] + (1.0/6.0) * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4)) < 0.000001;
 
         Supplier<Boolean> isCollision = () ->
-                data[1] + (1.0 / turnOffset)
+                data[1] + (1.0 / 6.0)
                         * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4) < 0;
+
 
 
         if (isTurningPoint.get()) {
             if (isCollision.get()) {
                 collided = true;
             }
+
             direction *= -1;
         }
 
@@ -154,10 +228,10 @@ public abstract class Orbiter extends Box {
         data[3] += stepSize * l / Math.pow(data[1], 2);
         data[0] += stepSize * e / (1 - 2 * schMass / data[1]);
         data[1] += (1.0 / 6) * stepSize * direction * (k1 + 2 * k2 + 2 * k3 + k4);
-        data[2] = Math.PI/2;
+        data[2] = Math.PI / 2;
         data[4] += stepSize;
 
-        for(Orbiter neighbor : neighbors) {
+        for (Orbiter neighbor : neighbors) {
             if (neighbor != this) {
                 Point3D globalPoint1 = getGlobalCartesianCoordinates();
                 Point3D globalPoint2 = neighbor.getGlobalCartesianCoordinates();
@@ -166,43 +240,68 @@ public abstract class Orbiter extends Box {
         }
 
 
+    }
+
+    public void eulerIntegrate(ArrayList<Orbiter> neighbors) {
+        double k1 = geodesicFunction(data[1]);
+
+        Supplier<Boolean> isTurningPoint = () ->
+                geodesicArgument(data[1] + stepSize * direction * k1) < 0.000001;
+
+
+        Supplier<Boolean> isCollision = () ->
+                data[1] + stepSize * direction * k1 < 0;
+
+        if (isTurningPoint.get()) {
+            if (isCollision.get()) {
+                collided = true;
+            }
+
+            direction *= -1;
+        }
+
+        if (isCollision.get()) {
+            collided = true;
+        }
+        data[3] += stepSize * l / Math.pow(data[1], 2);
+        data[0] += stepSize * e / (1 - 2 * schMass / data[1]);
+        data[1] += stepSize * direction * k1;
+        data[2] = Math.PI / 2;
+        data[4] += stepSize;
 
     }
 
     public void translate() {
         setTranslateX(data[1] * Math.cos(data[3]));
         setTranslateY(data[1] * Math.sin(data[3]));
-        globalPointView3D = new PointView3D("", getGlobalCartesianCoordinates(), Double.toString(data[4]));
-        localPointView3D = new PointView3D("", getLocalCartesianCoordinates(), Double.toString(data[4]));
+        globalPointView3D = new PointView3D(getGlobalCartesianCoordinates(), Double.toString(data[4]));
+        localPointView3D = new PointView3D(getLocalCartesianCoordinates(), Double.toString(data[4]));
         generateTracer();
+
+        Point3D cartesianPoint = getGlobalCartesianCoordinates();
+        cartesianPoint = globalToLocal(cartesianPoint);
+        Point3D sphericalPoint = toSpherical(cartesianPoint);
+
+        data[1] = sphericalPoint.getX();
+        data[2] = sphericalPoint.getY();
+        data[3] = sphericalPoint.getZ();
+
     }
 
-    public static Point3D toSpherical(Point3D point3D) {
-        double x = point3D.getX();
-        double y = point3D.getY();
-
-        double r = Math.sqrt(x*x + y*y);
-        double theta = Math.PI/2;
-        double phi = Math.atan(Math.abs(y/x));
-
-        if (y > 0 && x > 0) {
-            phi = phi;
-        } else if (y > 0 && x < 0) {
-            phi = Math.PI - phi;
-        } else if (y < 0 && x < 0) {
-            phi = Math.PI + phi;
-        } else if (y < 0 && x > 0) {
-            phi = 2*Math.PI - phi;
-        }
-
-        return new Point3D(r, theta, phi);
-    }
     public PointView3D getGlobalPointView3D() {
         return globalPointView3D;
     }
 
+    public void setGlobalPointView3D(PointView3D globalPointView3D) {
+        this.globalPointView3D = globalPointView3D;
+    }
+
     public PointView3D getLocalPointView3D() {
         return localPointView3D;
+    }
+
+    public void setLocalPointView3D(PointView3D localPointView3D) {
+        this.localPointView3D = localPointView3D;
     }
 
     public Point3D getGlobalCartesianCoordinates() {
@@ -233,14 +332,6 @@ public abstract class Orbiter extends Box {
         return new Point3D(x, y, z);
     }
 
-    public void setGlobalPointView3D(PointView3D globalPointView3D) {
-        this.globalPointView3D = globalPointView3D;
-    }
-
-    public void setLocalPointView3D(PointView3D localPointView3D) {
-        this.localPointView3D = localPointView3D;
-    }
-
     public double getMass() {
         return mass;
     }
@@ -257,14 +348,6 @@ public abstract class Orbiter extends Box {
         this.schMass = schMass;
     }
 
-    public void setE(double e) {
-        this.e = e;
-    }
-
-    public void setL(double l) {
-        this.l = l;
-    }
-
     public int getDirection() {
         return direction;
     }
@@ -273,20 +356,12 @@ public abstract class Orbiter extends Box {
         this.direction = direction;
     }
 
-    public void setData(double[] data) {
-        this.data = data.clone();
-    }
-
     public double[] getRotationalOffsets() {
         return rotationalOffsets;
     }
 
     public void setRotationalOffsets(double[] rotationalOffsets) {
         this.rotationalOffsets = rotationalOffsets;
-    }
-
-    public void setCollided(boolean collided) {
-        this.collided = collided;
     }
 
     public void setTracerMaterial(Material tracerMaterial) {

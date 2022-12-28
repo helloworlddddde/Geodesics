@@ -33,7 +33,7 @@ public class Main extends Application {
     public void start(Stage primaryStage) throws Exception {
 
         Orbiter orbiter = new Particle(1, 1, 0.993, 4.1, -1);
-        orbiter.setInitialConditions(new double[]{0, 100, Math.PI/2, 0, 0}, new double[]{0, 0});
+        orbiter.setInitialConditions(new double[]{0, 100, Math.PI/2, 0, 0}, new double[]{0, 0, 0});
         primaryStage.setScene(UIGenerator.generateMainScene(orbiter));
         primaryStage.show();
 
