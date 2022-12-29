@@ -50,7 +50,7 @@ public class OrbitalSimulator {
             }
 
             for(Orbiter o : orbiters) {
-                o.translate();
+                o.translate(o.dx, o.dy);
             }
 
             t += globalStepSize;

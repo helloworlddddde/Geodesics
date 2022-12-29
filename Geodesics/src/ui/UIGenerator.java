@@ -122,7 +122,7 @@ public class UIGenerator {
         }
         RotationGroup centerPlane = (RotationGroup) simulationSubScene.getRoot();
 
-        OrbitalSimulator orbitalSimulator = new OrbitalSimulator(orbiters, 0.2, 10000);
+        OrbitalSimulator orbitalSimulator = new OrbitalSimulator(orbiters, 0.1, 10000);
 
         ArrayList<ArrayList<OrbitalData>> simulationData = orbitalSimulator.getSimulationData();
 

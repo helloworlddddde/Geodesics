@@ -150,7 +150,7 @@ public abstract class Orbiter extends Box {
         double k1 = orbiter.computeGeodesicFunction();
         double k1_ = orbiter.computeGeodesicArgument(r + d * h * k1);
 
-        if (k1_ < 0.000001) {
+        if (k1_ < 0.00001) {
             d *= -1;
         }
 
@@ -178,8 +178,10 @@ public abstract class Orbiter extends Box {
         double dx = dr * Math.cos(phi) - r * Math.sin(phi) * dphi;
         double dy = dr * Math.sin(phi) + r * Math.cos(phi) * dphi;
 
+
         orbiter.dx = dx;
         orbiter.dy = dy;
+        System.out.println(orbiter.getGlobalCartesianCoordinates());
 
 
 
