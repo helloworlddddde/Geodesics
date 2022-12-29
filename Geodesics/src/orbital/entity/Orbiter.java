@@ -74,11 +74,14 @@ public abstract class Orbiter extends Box {
     }
 
     public void setOrbitalPlane(RotationGroup orbitalPlane) {
+        if (this.orbitalPlane != null) {
+            this.orbitalPlane.getChildren().remove(this);
+        }
         this.orbitalPlane = orbitalPlane;
         orbitalPlane.getChildren().add(this);
         orbitalPlane.rotateByX(orbitalData.getRotationalData(OrbitalData.X_INDEX));
-        orbitalPlane.rotateByX(orbitalData.getRotationalData(OrbitalData.Y_INDEX));
-        orbitalPlane.rotateByX(orbitalData.getRotationalData(OrbitalData.Z_INDEX));
+        orbitalPlane.rotateByY(orbitalData.getRotationalData(OrbitalData.Y_INDEX));
+        orbitalPlane.rotateByZ(orbitalData.getRotationalData(OrbitalData.Z_INDEX));
     }
 
     public abstract double computeEffectivePotential(double r, double l);
@@ -163,6 +166,7 @@ public abstract class Orbiter extends Box {
         double M = orbiter.getOrbitalData().getMassData(OrbitalData.SCH_MASS_INDEX);
 
 
+
         equatorialData[OrbitalData.T_INDEX] += h;
 
         equatorialData[OrbitalData.TAU_INDEX] += h * (1 - 2 * (M / r)) / e;
@@ -181,7 +185,7 @@ public abstract class Orbiter extends Box {
 
         orbiter.dx = dx;
         orbiter.dy = dy;
-        System.out.println(orbiter.getGlobalCartesianCoordinates());
+
 
 
 
@@ -233,6 +237,19 @@ public abstract class Orbiter extends Box {
         double y = (boundsInParent.getMaxY() + boundsInParent.getMinY()) / 2;
         double z = (boundsInParent.getMaxZ() + boundsInParent.getMinZ()) / 2;
         return new Point3D(x, y, z);
+    }
+
+    public Point3D localToGlobal(Point3D localPoint) {
+        Bounds localBounds = BoundsUtils.createBoundingBox(
+                localPoint, localPoint, localPoint, localPoint, localPoint, localPoint, localPoint, localPoint
+        );
+        Bounds boundsInParent = localToParent(localBounds);
+        Bounds boundsInScene = localToScene(boundsInParent);
+        double x = (boundsInScene.getMaxX() + boundsInScene.getMinX()) / 2;
+        double y = (boundsInScene.getMaxY() + boundsInScene.getMinY()) / 2;
+        double z = (boundsInScene.getMaxZ() + boundsInScene.getMinZ()) / 2;
+        return new Point3D(x, y, z);
+
     }
 
 }

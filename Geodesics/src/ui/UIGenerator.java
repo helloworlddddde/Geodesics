@@ -1,6 +1,7 @@
 package ui;
 
 import javafx.application.Platform;
+import javafx.geometry.Point3D;
 import javafx.geometry.Pos;
 import javafx.scene.*;
 import javafx.scene.chart.LineChart;
@@ -122,20 +123,26 @@ public class UIGenerator {
         }
         RotationGroup centerPlane = (RotationGroup) simulationSubScene.getRoot();
 
-        OrbitalSimulator orbitalSimulator = new OrbitalSimulator(orbiters, 0.1, 10000);
+        OrbitalSimulator orbitalSimulator = new OrbitalSimulator(orbiters, 0.1, 20000);
 
         ArrayList<ArrayList<OrbitalData>> simulationData = orbitalSimulator.getSimulationData();
 
-        for(Orbiter o : orbiters) {
-            if (!centerPlane.getChildren().contains(o.getOrbitalPlane())) {
-                centerPlane.getChildren().add(o.getOrbitalPlane());
-            }
-        }
+        ArrayList<ArrayList<Point3D>> coordinateData = orbitalSimulator.getCoordinatesData();
 
-        for(Node node : centerPlane.getChildren()) {
-            if (node instanceof Group) {
-                ((Group) node).getChildren().removeIf((n) -> n instanceof Tracer);
-            }
+//        for(Orbiter o : orbiters) {
+//            if (!centerPlane.getChildren().contains(o.getOrbitalPlane())) {
+//                centerPlane.getChildren().add(o.getOrbitalPlane());
+//            }
+//        }
+//
+//        for(Node node : centerPlane.getChildren()) {
+//            if (node instanceof Group) {
+//                ((Group) node).getChildren().removeIf((n) -> n instanceof Tracer);
+//            }
+//        }
+
+        for(Orbiter o : orbiters) {
+            centerPlane.getChildren().add(o);
         }
 
         new Timer("Simulation Timer") {{
@@ -150,7 +157,9 @@ public class UIGenerator {
                                Orbiter o = orbiters.get(i);
                                OrbitalData oData = simulationData.get(i).get(count);
                                o.setOrbitalData(oData);
-                               o.translate();
+                               o.setTranslateX(coordinateData.get(i).get(count).getX());
+                               o.setTranslateY(coordinateData.get(i).get(count).getY());
+                               o.setTranslateZ(coordinateData.get(i).get(count).getZ());
                                o.generateTracer();
 
                                tableView.getItems().set(i, new PointView3D(o.getGlobalCartesianCoordinates()));

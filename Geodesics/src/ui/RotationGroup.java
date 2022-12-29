@@ -14,6 +14,7 @@ public class RotationGroup extends Group {
         t = t.createConcatenation(r);
         this.getTransforms().clear();
         this.getTransforms().addAll(t);
+
     }
 
     public void rotateByY(double ang) {

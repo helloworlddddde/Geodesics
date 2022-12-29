@@ -37,10 +37,10 @@ public class Main extends Application {
         OrbitalData orbitalData = new OrbitalData(
                 new double[]{1, 1},
                 new double[]{0, 0, 100, Math.PI/2, 0, -1, 0.993, 4.1},
-                new double[]{0, 0, 0},
+                new double[]{30, 30, 0},
                 new double[]{0.2}
         );
-        
+
 //        new double[]{1, 1},
 //                new double[]{0, 0, 30, Math.PI/2, 0, -1, 0.983, 4.1},
 //                new double[]{0, 0, 0},
