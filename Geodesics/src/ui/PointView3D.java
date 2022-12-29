@@ -7,20 +7,11 @@ public class PointView3D {
     private final SimpleStringProperty x;
     private final SimpleStringProperty y;
     private final SimpleStringProperty z;
-    private final SimpleStringProperty tau;
 
-    PointView3D(String x, String y, String z, String tau) {
-        this.x = new SimpleStringProperty(String.format("%6.3e", Double.parseDouble(x)));
-        this.y = new SimpleStringProperty(String.format("%6.3e", Double.parseDouble(y)));
-        this.z = new SimpleStringProperty(String.format("%6.3e", Double.parseDouble(z)));
-        this.tau = new SimpleStringProperty(String.format("%6.3e", Double.parseDouble(tau)));
-    }
-
-    public PointView3D(Point3D point3D, String tau) {
+    public PointView3D(Point3D point3D) {
         this.x = new SimpleStringProperty(String.format("%6.3e", point3D.getX()));
         this.y = new SimpleStringProperty(String.format("%6.3e", point3D.getY()));
         this.z = new SimpleStringProperty(String.format("%6.3e", point3D.getZ()));
-        this.tau = new SimpleStringProperty(String.format("%6.3e", Double.parseDouble(tau)));
     }
 
     public String getX() {
@@ -43,26 +34,8 @@ public class PointView3D {
         this.y.set(y);
     }
 
-    public String getTau() {
-        return tau.get();
-    }
-
-    public void setTau(String tau) {
-        this.tau.set(tau);
-    }
-
-    public SimpleStringProperty tauProperty() {
-        return tau;
-    }
-
     public SimpleStringProperty yProperty() {
         return y;
-    }
-
-    public void setPointLabels(Point3D point3D) {
-        setX(Double.toString(point3D.getX()));
-        setY(Double.toString(point3D.getY()));
-        setZ(Double.toString(point3D.getZ()));
     }
 
     public String getZ() {

@@ -4,9 +4,9 @@ import com.sun.javafx.geometry.BoundsUtils;
 import javafx.geometry.Bounds;
 import javafx.geometry.Point3D;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Material;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
-import javafx.scene.shape.Sphere;
 import orbital.data.OrbitalData;
 import orbital.data.OrbitalIntegrator;
 import ui.RotationGroup;
@@ -16,10 +16,12 @@ import java.util.function.Function;
 
 public abstract class Orbiter extends Box {
 
+    public double dx = 0;
+    public double dy = 0;
     public void generateTracer() {
         RotationGroup parent = (RotationGroup) getParent();
         if (parent != null) {
-            Sphere tracer = new Sphere();
+            Tracer tracer = new Tracer();
             tracer.setMaterial(new PhongMaterial(tracerColor));
             parent.getChildren().add(tracer);
             tracer.setTranslateX(getTranslateX());
@@ -27,20 +29,42 @@ public abstract class Orbiter extends Box {
         }
     }
 
-    RotationGroup orbitalPlane;
+    public Color getTracerColor() {
+        return Color.color(tracerColor.getRed(), tracerColor.getGreen(), tracerColor.getBlue());
+    }
 
-    OrbitalIntegrator orbitalIntegrator = new OrbitalIntegrator(1);
 
-    OrbitalData orbitalData;
+    public Orbiter(Orbiter orbiter) {
+        super(10, 10, 10);
+        setMaterial(new PhongMaterial(orbiter.getTracerColor()));
+        orbitalData = orbiter.orbitalData.clone();
+        RotationGroup orbitalPlane = new RotationGroup();
+        setOrbitalPlane(orbitalPlane);
+        orbitalIntegrator = new OrbitalIntegrator(orbiter.getOrbitalIntegrator().getIntegrationOrder());
+        tracerColor = orbiter.getTracerColor();
+    }
 
-    Color tracerColor = Color.color(Math.random(), Math.random(), Math.random());
+    public void setOrbitalData(OrbitalData orbitalData) {
+        this.orbitalData = orbitalData.clone();
+    }
+
+    public OrbitalIntegrator getOrbitalIntegrator() {
+        return orbitalIntegrator;
+    }
+
+    protected RotationGroup orbitalPlane;
+
+    protected OrbitalIntegrator orbitalIntegrator = new OrbitalIntegrator(1);
+
+    protected OrbitalData orbitalData;
+
+    protected Color tracerColor = Color.color(Math.random(), Math.random(), Math.random());
 
 
     public Orbiter(OrbitalData orbitalData) {
         super(10, 10, 10);
-
+        setMaterial(new PhongMaterial(tracerColor));
         this.orbitalData = orbitalData.clone();
-
         RotationGroup orbitalPlane = new RotationGroup();
         setOrbitalPlane(orbitalPlane);
     }
@@ -92,6 +116,7 @@ public abstract class Orbiter extends Box {
             } else if (y <= 0 && x >= 0) {
                 p = 2 * Math.PI - p;
             }
+
             return p;
         };
 
@@ -107,7 +132,16 @@ public abstract class Orbiter extends Box {
 
     public static void eulerIntegrate(Orbiter orbiter, ArrayList<Orbiter> neighbors) {
 
+        Point3D cartesianPoint = orbiter.getGlobalCartesianCoordinates();
+        Point3D sphericalPoint = cartesianToSpherical(orbiter.globalToLocal(cartesianPoint));
+
+
+
         double[] equatorialData = orbiter.getOrbitalData().getEquatorialData();
+        equatorialData[OrbitalData.R_INDEX] = sphericalPoint.getX();
+        equatorialData[OrbitalData.THETA_INDEX] = sphericalPoint.getY();
+        equatorialData[OrbitalData.PHI_INDEX] = sphericalPoint.getZ();
+
         double r = equatorialData[OrbitalData.R_INDEX];
         double d = orbiter.getOrbitalData().getEquatorialData(OrbitalData.DIRECTION_INDEX);
 
@@ -125,7 +159,7 @@ public abstract class Orbiter extends Box {
 
         double e = equatorialData[OrbitalData.E_INDEX];
         double l = equatorialData[OrbitalData.L_INDEX];
-
+        double phi = equatorialData[OrbitalData.PHI_INDEX];
         double M = orbiter.getOrbitalData().getMassData(OrbitalData.SCH_MASS_INDEX);
 
 
@@ -137,8 +171,17 @@ public abstract class Orbiter extends Box {
 
         equatorialData[OrbitalData.THETA_INDEX] += 0;
 
-        equatorialData[OrbitalData.PHI_INDEX] += h * ((1 - 2 * (M / r)) * l) /
-                (Math.pow(r, 2) * e);
+        equatorialData[OrbitalData.PHI_INDEX] += h * ((1 - 2 * (M / r)) * l) / (Math.pow(r, 2) * e);
+
+        double dr = d * h * k1;
+        double dphi = h * ((1 - 2 * (M / r)) * l) / (Math.pow(r, 2) * e);
+        double dx = dr * Math.cos(phi) - r * Math.sin(phi) * dphi;
+        double dy = dr * Math.sin(phi) + r * Math.cos(phi) * dphi;
+
+        orbiter.dx = dx;
+        orbiter.dy = dy;
+
+
 
         equatorialData[OrbitalData.DIRECTION_INDEX] = d;
 
@@ -147,10 +190,15 @@ public abstract class Orbiter extends Box {
 
     }
 
-
+    public void translate(double dx, double dy) {
+        setTranslateX(getTranslateX() + dx);
+        setTranslateY(getTranslateY() + dy);
+    }
 
 
     public void translate() {
+
+
         double r = orbitalData.getEquatorialData(OrbitalData.R_INDEX);
         double phi = orbitalData.getEquatorialData(OrbitalData.PHI_INDEX);
         setTranslateX(r * Math.cos(phi));

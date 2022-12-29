@@ -11,16 +11,17 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Box;
+import javafx.scene.shape.Sphere;
+import orbital.data.OrbitalData;
 import orbital.data.OrbitalIntegrator;
 import orbital.entity.Orbiter;
 import orbital.entity.Particle;
+import orbital.entity.Tracer;
 import orbital.mechanics.DataGenerator;
 import orbital.mechanics.OrbitalSimulator;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.lang.reflect.Array;
+import java.util.*;
 
 public class UIGenerator {
 
@@ -64,38 +65,112 @@ public class UIGenerator {
 
 
     private static SubScene generateOrbiterLauncherSubScene(Orbiter orbiter, SubScene simulationSubScene, SubScene orbiterTrackerSubScene) {
-        ArrayList<Orbiter> orbiters = new ArrayList<Orbiter>() {{
-            add(orbiter);
+
+
+        ArrayList<Orbiter> orbiters = new ArrayList<>();
+
+        VBox verticalScrollPaneContent = new VBox();
+
+        ScrollPane verticalScrollPane = new ScrollPane(verticalScrollPaneContent);
+
+        Button launchOrbiterButton = new Button("launch Orbiter") {{
+           setMinWidth(125);
+           setOnAction(event -> {
+
+               renderOrbit(orbiters, simulationSubScene, orbiterTrackerSubScene);
+
+           });
         }};
-        Button test = new Button("test");
-        RotationGroup centralGroup = (RotationGroup) simulationSubScene.getRoot();
-        centralGroup.getChildren().add(orbiter.getOrbitalPlane());
-        HBox row1HorizontalBox = new HBox(test);
-        VBox col1VerticalBox = new VBox(row1HorizontalBox);
 
-        test.setOnAction(event -> {
-            OrbitalIntegrator test2 = new OrbitalIntegrator(1);
-            Timer timer = new Timer();
-            timer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    Platform.runLater(() -> {
-
-                        test2.orbitalIntegrate(orbiter, orbiters);
-                        orbiter.translate();
-                        orbiter.generateTracer();
+        Button addOrbiterButton = new Button("Add Orbiter") {{
+            setMinWidth(125);
+            setOnAction(event -> {
+                Orbiter newOrbiter = new Particle(orbiter);
+                orbiters.add(newOrbiter);
+                TextArea orbiterDetailsTextArea = new TextArea(newOrbiter.getOrbitalData().toString()) {{
+                    setMinWidth(498);
+                    setMaxHeight(100);
+                    setEditable(false);
+                }};
+                verticalScrollPaneContent.getChildren().add(orbiterDetailsTextArea);
 
 
-                    });
-                }
-            }, 0, 1);
-        });
+            });
+        }};
+
+        HBox row1HorizontalBox = new HBox(launchOrbiterButton, addOrbiterButton);
+
+        VBox col1VerticalBox = new VBox(row1HorizontalBox, verticalScrollPane);
+
+
         return new SubScene(col1VerticalBox, 500, 500);
     }
 
 
     private static SubScene generateOrbiterSetupSubScene(SubScene effectivePotentialSubScene, Orbiter orbiter) {
         return new SubScene(new Group(), 500, 500);
+    }
+
+    private static void renderOrbit(ArrayList<Orbiter> orbiters, SubScene simulationSubScene, SubScene orbiterTrackerSubScene) {
+
+        TableView<PointView3D> tableView = (TableView) orbiterTrackerSubScene.getRoot();
+
+        tableView.getItems().clear();
+
+        for(Orbiter o : orbiters) {
+            tableView.getItems().add(new PointView3D(o.getGlobalCartesianCoordinates()));
+        }
+        RotationGroup centerPlane = (RotationGroup) simulationSubScene.getRoot();
+
+        OrbitalSimulator orbitalSimulator = new OrbitalSimulator(orbiters, 0.2, 10000);
+
+        ArrayList<ArrayList<OrbitalData>> simulationData = orbitalSimulator.getSimulationData();
+
+        for(Orbiter o : orbiters) {
+            if (!centerPlane.getChildren().contains(o.getOrbitalPlane())) {
+                centerPlane.getChildren().add(o.getOrbitalPlane());
+            }
+        }
+
+        for(Node node : centerPlane.getChildren()) {
+            if (node instanceof Group) {
+                ((Group) node).getChildren().removeIf((n) -> n instanceof Tracer);
+            }
+        }
+
+        new Timer("Simulation Timer") {{
+           schedule(new TimerTask() {
+               int count = 0;
+               int updatesPerMs = 10;
+               @Override
+               public void run() {
+                   Platform.runLater(() -> {
+                       if (count < simulationData.get(0).size()) {
+                           for(int i = 0; i < orbiters.size(); i++) {
+                               Orbiter o = orbiters.get(i);
+                               OrbitalData oData = simulationData.get(i).get(count);
+                               o.setOrbitalData(oData);
+                               o.translate();
+                               o.generateTracer();
+
+                               tableView.getItems().set(i, new PointView3D(o.getGlobalCartesianCoordinates()));
+                           }
+
+                           count += updatesPerMs;
+
+                       } else {
+                           cancel();
+                           for(int i = 0; i < orbiters.size(); i++) {
+                               Orbiter o = orbiters.get(i);
+                               OrbitalData initialOData = simulationData.get(i).get(0);
+                               o.setOrbitalData(initialOData);
+                           }
+                       }
+                   });
+               }
+           }, 0, 1);
+        }};
+
     }
 
     private static SubScene generateOrbiterTrackerSubScene() {
@@ -106,12 +181,10 @@ public class UIGenerator {
         yColumn.setCellValueFactory(new PropertyValueFactory<>("y"));
         TableColumn<PointView3D, String> zColumn = new TableColumn("z");
         zColumn.setCellValueFactory(new PropertyValueFactory<>("z"));
-        TableColumn<PointView3D, String> tauColumn = new TableColumn("τ");
-        tauColumn.setCellValueFactory(new PropertyValueFactory<>("tau"));
-        tableView.getColumns().addAll(xColumn, yColumn, zColumn, tauColumn);
+        tableView.getColumns().addAll(xColumn, yColumn, zColumn);
 
         for (TableColumn column : tableView.getColumns()) {
-            column.setMinWidth(124.5);
+            column.setMinWidth(500.0 / 3);
         }
         SubScene subScene = new SubScene(tableView, 500, 500);
         return subScene;

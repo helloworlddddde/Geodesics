@@ -32,5 +32,9 @@ public class OrbitalIntegrator {
         orbitalIntegratorFunction.orbitalIntegrate(orbiter, neighbors);
     }
 
+    public int getIntegrationOrder() {
+        return integrationOrder;
+    }
+
 
 }

@@ -1,6 +1,7 @@
 package orbital.mechanics;
 
 import javafx.scene.SubScene;
+import orbital.data.OrbitalData;
 import orbital.entity.Orbiter;
 import ui.RotationGroup;
 
@@ -13,7 +14,7 @@ public class OrbitalSimulator {
     private RotationGroup centerPlane = new RotationGroup();
     private final SubScene simulationSubScene = new SubScene(centerPlane, 500, 500);
 
-    private final ArrayList<ArrayList<double[]>> simulationData = new ArrayList<>();
+    private final ArrayList<ArrayList<OrbitalData>> simulationData = new ArrayList<>();
     private ArrayList<Orbiter> orbiters;
 
     private double globalStepSize;
@@ -21,34 +22,44 @@ public class OrbitalSimulator {
 
 
 
-    public OrbitalSimulator(boolean isCoordinateTimeParameterized, ArrayList<Orbiter> orbiters, double globalStepSize, double duration) {
+    public OrbitalSimulator(ArrayList<Orbiter> orbiters, double globalStepSize, double duration) {
         this.orbiters = orbiters;
         this.globalStepSize = globalStepSize;
         this.duration = duration;
         setup();
-        simulate(isCoordinateTimeParameterized);
+        simulate();
     }
 
     private void setup() {
-
-    }
-
-
-
-    private void simulate(boolean isCoordinateTimeParameterized) {
-        if (isCoordinateTimeParameterized) {
-            simulateCoordinateTimeParameterization();
-        } else {
-            simulateProperTimeParameterization();
+        for(Orbiter o : orbiters) {
+            centerPlane.getChildren().add(o.getOrbitalPlane());
+            simulationData.add(new ArrayList<>());
+            o.getOrbitalData().setUtilityData(OrbitalData.STEP_SIZE_INDEX, globalStepSize);
+            o.translate();
         }
     }
 
-    private void simulateCoordinateTimeParameterization() {
+    private void simulate() {
+        double t = 0;
+        while (t < duration + globalStepSize) {
+            for(int i = 0; i < orbiters.size(); i++) {
+                ArrayList<OrbitalData> orbiterData = simulationData.get(i);
+                Orbiter orbiter = orbiters.get(i);
+                orbiterData.add(orbiter.getOrbitalData().clone());
+                orbiter.getOrbitalIntegrator().orbitalIntegrate(orbiter, orbiters);
+            }
+
+            for(Orbiter o : orbiters) {
+                o.translate();
+            }
+
+            t += globalStepSize;
+        }
 
     }
 
-    private void simulateProperTimeParameterization() {
-
+    public ArrayList<ArrayList<OrbitalData>> getSimulationData() {
+        return simulationData;
     }
 
 

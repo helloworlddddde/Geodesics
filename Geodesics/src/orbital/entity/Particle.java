@@ -8,6 +8,10 @@ public class Particle extends Orbiter {
         super(orbitalData);
     }
 
+    public Particle(Orbiter orbiter) {
+        super(orbiter);
+    }
+
     @Override
     public double computeEffectivePotential(double r, double l) {
         double M = orbitalData.getMassData(OrbitalData.SCH_MASS_INDEX);

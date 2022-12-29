@@ -1,6 +1,6 @@
 package orbital.data;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 
 public class OrbitalData {
 
@@ -24,6 +24,7 @@ public class OrbitalData {
 
     double[] massData;
     double[] equatorialData;
+    double[] translationalData;
     double[] rotationalData;
     double[] utilityData;
 
@@ -36,15 +37,31 @@ public class OrbitalData {
     }
 
 
+    @Override
     public OrbitalData clone() {
         return new OrbitalData(massData.clone(), equatorialData.clone(), rotationalData.clone(), utilityData.clone());
     }
 
+    public void setUtilityData(int i, double v) {
+        utilityData[i] = v;
+    }
     public double getUtilityData(int i) {
         return utilityData[i];
     }
     public double getMassData(int i) {
         return massData[i];
+    }
+
+    @Override
+    public String toString() {
+        return "\n" +
+                super.toString() + "\n" +
+                "[m, M]: " + Arrays.toString(massData) + "\n" +
+                "[τ, t, r, θ, φ, d, e, l]: " + Arrays.toString(equatorialData) + "\n" +
+                "[X, Y, Z]: " + Arrays.toString(rotationalData) + "\n" +
+                "[Δt]: " + Arrays.toString(utilityData) + "\n";
+
+
     }
 
     public double getEquatorialData(int i) {

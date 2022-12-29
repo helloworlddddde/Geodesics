@@ -38,20 +38,10 @@ public class Main extends Application {
                 new double[]{1, 1},
                 new double[]{0, 0, 100, Math.PI/2, 0, -1, 0.993, 4.1},
                 new double[]{0, 0, 0},
-                new double[]{1}
+                new double[]{0.2}
         );
 
         Orbiter orbiter = new Particle(orbitalData);
-//        ArrayList<Orbiter> orbiters = new ArrayList<Orbiter>() {{
-//            add(orbiter);
-//        }};
-//
-//        OrbitalIntegrator test = new OrbitalIntegrator(1);
-//
-//        for(int i = 0; i < 10000; i++) {
-//            test.orbitalIntegrate(orbiter, orbiters);
-//            System.out.println(Arrays.toString(orbiter.getOrbitalData().getEquatorialData()));
-//        }
 
         primaryStage.setScene(UIGenerator.generateMainScene(orbiter));
         primaryStage.show();
