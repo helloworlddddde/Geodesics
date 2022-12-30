@@ -51,6 +51,9 @@ public class OrbitalData {
     public double getMassData(int i) {
         return massData[i];
     }
+    public void setRotationalData(double[] rotationalData) {
+        this.rotationalData = rotationalData.clone();
+    }
 
     @Override
     public String toString() {
@@ -60,8 +63,6 @@ public class OrbitalData {
                 "[τ, t, r, θ, φ, d, e, l]: " + Arrays.toString(equatorialData) + "\n" +
                 "[X, Y, Z]: " + Arrays.toString(rotationalData) + "\n" +
                 "[Δt]: " + Arrays.toString(utilityData) + "\n";
-
-
     }
 
     public double getEquatorialData(int i) {

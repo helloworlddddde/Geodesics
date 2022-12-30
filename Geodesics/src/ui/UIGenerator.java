@@ -74,7 +74,7 @@ public class UIGenerator {
 
         ScrollPane verticalScrollPane = new ScrollPane(verticalScrollPaneContent);
 
-        Button launchOrbiterButton = new Button("launch Orbiter") {{
+        Button launchOrbiterButton = new Button("Launch Orbiters") {{
            setMinWidth(125);
            setOnAction(event -> {
 
@@ -86,8 +86,13 @@ public class UIGenerator {
         Button addOrbiterButton = new Button("Add Orbiter") {{
             setMinWidth(125);
             setOnAction(event -> {
+
+                orbiter.getOrbitalData().setRotationalData(
+                        new double[]{Math.random() * 360, Math.random() * 360, Math.random() * 360}
+                );
                 Orbiter newOrbiter = new Particle(orbiter);
                 orbiters.add(newOrbiter);
+
                 TextArea orbiterDetailsTextArea = new TextArea(newOrbiter.getOrbitalData().toString()) {{
                     setMinWidth(498);
                     setMaxHeight(100);
@@ -123,45 +128,38 @@ public class UIGenerator {
         }
         RotationGroup centerPlane = (RotationGroup) simulationSubScene.getRoot();
 
-        OrbitalSimulator orbitalSimulator = new OrbitalSimulator(orbiters, 0.1, 20000);
+        OrbitalSimulator orbitalSimulator = new OrbitalSimulator(orbiters, 0.1, 15000);
 
         ArrayList<ArrayList<OrbitalData>> simulationData = orbitalSimulator.getSimulationData();
 
         ArrayList<ArrayList<Point3D>> coordinateData = orbitalSimulator.getCoordinatesData();
 
-//        for(Orbiter o : orbiters) {
-//            if (!centerPlane.getChildren().contains(o.getOrbitalPlane())) {
-//                centerPlane.getChildren().add(o.getOrbitalPlane());
-//            }
-//        }
-//
-//        for(Node node : centerPlane.getChildren()) {
-//            if (node instanceof Group) {
-//                ((Group) node).getChildren().removeIf((n) -> n instanceof Tracer);
-//            }
-//        }
-
         for(Orbiter o : orbiters) {
-            centerPlane.getChildren().add(o);
+            if (!centerPlane.getChildren().contains(o.getOrbitalPlane())) {
+                centerPlane.getChildren().add(o.getOrbitalPlane());
+            }
         }
+
+        for(Node node : centerPlane.getChildren()) {
+            if (node instanceof Group) {
+                ((Group) node).getChildren().removeIf((n) -> n instanceof Tracer);
+            }
+        }
+
 
         new Timer("Simulation Timer") {{
            schedule(new TimerTask() {
                int count = 0;
-               int updatesPerMs = 10;
+               final int updatesPerMs = 10;
                @Override
                public void run() {
                    Platform.runLater(() -> {
                        if (count < simulationData.get(0).size()) {
                            for(int i = 0; i < orbiters.size(); i++) {
                                Orbiter o = orbiters.get(i);
-                               OrbitalData oData = simulationData.get(i).get(count);
-                               o.setOrbitalData(oData);
-                               o.setTranslateX(coordinateData.get(i).get(count).getX());
-                               o.setTranslateY(coordinateData.get(i).get(count).getY());
-                               o.setTranslateZ(coordinateData.get(i).get(count).getZ());
+                               o.setOrbitalData(simulationData.get(i).get(count));
+                               o.translate();
                                o.generateTracer();
-
                                tableView.getItems().set(i, new PointView3D(o.getGlobalCartesianCoordinates()));
                            }
 
