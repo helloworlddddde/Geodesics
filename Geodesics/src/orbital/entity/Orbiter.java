@@ -26,6 +26,7 @@ public abstract class Orbiter extends Box {
             parent.getChildren().add(tracer);
             tracer.setTranslateX(getTranslateX());
             tracer.setTranslateY(getTranslateY());
+            tracer.setTranslateZ(getTranslateZ());
         }
     }
 
@@ -36,12 +37,11 @@ public abstract class Orbiter extends Box {
 
     public Orbiter(Orbiter orbiter) {
         super(10, 10, 10);
-        setMaterial(new PhongMaterial(orbiter.getTracerColor()));
         orbitalData = orbiter.orbitalData.clone();
         RotationGroup orbitalPlane = new RotationGroup();
         setOrbitalPlane(orbitalPlane);
         orbitalIntegrator = new OrbitalIntegrator(orbiter.getOrbitalIntegrator().getIntegrationOrder());
-        tracerColor = orbiter.getTracerColor();
+        setMaterial(new PhongMaterial(tracerColor));
     }
 
     public void setOrbitalData(OrbitalData orbitalData) {
@@ -176,15 +176,6 @@ public abstract class Orbiter extends Box {
         equatorialData[OrbitalData.THETA_INDEX] += 0;
 
         equatorialData[OrbitalData.PHI_INDEX] += h * ((1 - 2 * (M / r)) * l) / (Math.pow(r, 2) * e);
-
-        double dr = d * h * k1;
-        double dphi = h * ((1 - 2 * (M / r)) * l) / (Math.pow(r, 2) * e);
-        double dx = dr * Math.cos(phi) - r * Math.sin(phi) * dphi;
-        double dy = dr * Math.sin(phi) + r * Math.cos(phi) * dphi;
-
-
-        orbiter.dx = dx;
-        orbiter.dy = dy;
 
 
 
