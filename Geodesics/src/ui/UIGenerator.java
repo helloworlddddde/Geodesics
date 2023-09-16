@@ -141,6 +141,7 @@ public class UIGenerator {
                                     Orbiter o = orbiters.get(i);
                                     o.setData(simulationData.get(i).get(count));
                                     o.translate();
+                                    timerTextField.setText("t: " + stepSize * count);
                                     orbiterTrackerTableView.getItems().set(i, o.getGlobalPointView3D());
                                 }
                             }
