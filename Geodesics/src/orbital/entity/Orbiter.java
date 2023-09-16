@@ -172,8 +172,10 @@ public abstract class Orbiter extends Box {
     public void translate() {
         setTranslateX(data[1] * Math.cos(data[3]));
         setTranslateY(data[1] * Math.sin(data[3]));
-        globalPointView3D = new PointView3D("", getGlobalCartesianCoordinates(), Double.toString(data[4]));
-        localPointView3D = new PointView3D("", getLocalCartesianCoordinates(), Double.toString(data[4]));
+        globalPointView3D = new PointView3D("O", getGlobalCartesianCoordinates(),
+                Double.toString(data[0]));
+        localPointView3D = new PointView3D("O", getLocalCartesianCoordinates(),
+                Double.toString(data[0]));
         generateTracer();
     }
 
